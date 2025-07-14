@@ -1,0 +1,20 @@
+# Screen 1: Scan loader
+scan_loader: nifti
+
+# Screen 2: Scan inputs
+scan_path: PLACEHOLDER
+scan_loader_kwargs:
+
+# Screen 3: Segmentation (either drawing or saved)
+seg_path: PLACEHOLDER
+seg_loader: nifti_voi
+seg_loader_kwargs:
+  assert_scan: False
+  assert_phantom: False
+
+# Screen 4: Analysis Type / Customization
+analysis_type: paramap
+analysis_kwargs:
+  pyradiomics_config_path: /Users/davidspector/Home/Stanford/QuantUS Projects/TTC-CLI/configs/pyradiomics/moderate.yml
+analysis_funcs:
+  - pyradiomics

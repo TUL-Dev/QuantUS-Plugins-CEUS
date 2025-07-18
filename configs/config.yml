@@ -7,14 +7,16 @@ scan_loader_kwargs:
 
 # Screen 3: Segmentation (either drawing or saved)
 seg_path: PLACEHOLDER
-seg_loader: nifti_voi
+seg_loader: PLACEHOLDER
 seg_loader_kwargs:
   assert_scan: False
   assert_phantom: False
 
-# Screen 4: Analysis Type / Customization
-analysis_type: paramap
+# Screen 4: Analysis
+analysis_type: ttc_curves
 analysis_kwargs:
-  pyradiomics_config_path: /Users/davidspector/Home/Stanford/QuantUS Projects/TTC-CLI/configs/pyradiomics/moderate.yml
+  curves_output_path: PLACEHOLDER
+  pyradiomics_config_paths:
+    - /home/das/QuantUS_Projs/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate.yml
 analysis_funcs:
   - pyradiomics

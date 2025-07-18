@@ -1,9 +1,10 @@
 import copy
 
-from src.data_objs import UltrasoundImage, CeusSeg, TtcAnalysisBase
+from src.data_objs import UltrasoundImage, CeusSeg
 from src.image_loading.options import get_scan_loaders
 from src.seg_loading.options import get_seg_loaders
 from src.ttc_analysis.options import get_analysis_types
+from src.ttc_analysis.ttc_curves.framework import TtcCurvesAnalysis
 
 def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> UltrasoundImage:
     """Load the scan data using the specified scan loader.
@@ -60,7 +61,7 @@ def seg_loading_step(seg_type: str, image_data: UltrasoundImage, seg_path: str,
     return seg_loader(image_data, seg_path, scan_path=scan_path, **seg_loader_kwargs)
 
 def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: CeusSeg, 
-                  analysis_funcs: list, **analysis_kwargs) -> TtcAnalysisBase:
+                  analysis_funcs: list, **analysis_kwargs) -> TtcCurvesAnalysis:
     """Perform analysis using the specified analysis type.
     
     Args:
@@ -71,7 +72,7 @@ def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: Ceu
         analysis_funcs (list): List of analysis functions to apply.
         **analysis_kwargs: Additional keyword arguments for the analysis.
     Returns:
-        TtcAnalysisBase: Analysis object containing the results.
+        TtcCurvesAnalysis: Analysis object containing the results.
     """
     all_analysis_types, all_analysis_funcs = get_analysis_types()
     

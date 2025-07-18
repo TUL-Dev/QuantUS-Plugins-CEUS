@@ -62,13 +62,13 @@ def core_pipeline(args) -> int:
     # Get applicable plugins
     try:
         scan_loader = scan_loaders[args.scan_loader]['cls']
-        assert Path(args.scan_path).suffix in scan_loaders[args.scan_loader]['file_exts'], f"File must end with {scan_loaders[args.scan_loader]['file_exts']}"
+        assert max([args.scan_path.endswith(ext) for ext in scan_loaders[args.scan_loader]['file_exts']]), f"File must end with {scan_loaders[args.scan_loader]['file_exts']}"
     except KeyError:
         print(f'Parser "{args.scan_loader}" is not available!')
         print(f"Available parsers: {', '.join(scan_loaders.keys())}")
         return 1
     try:
-        seg_loader = seg_loaders[args.seg_loader]['func']
+        seg_loader = seg_loaders[args.seg_loader]
     except KeyError:
         print(f'Segmentation loader "{args.seg_loader}" is not available!')
         print(f"Available segmentation loaders: {', '.join(seg_loaders.keys())}")
@@ -89,15 +89,6 @@ def core_pipeline(args) -> int:
         print(f"Available scan loaders: {', '.join(scan_loaders.keys())}")
         return 1
 
-    # Check segmentation paths
-    try:
-        assertions = [args.seg_path.endswith(ext) for ext in seg_loaders[args.seg_loader]['exts']]
-        assert not len(assertions) or max(assertions), f"Segmentation file must end with {', '.join(seg_loaders[args.seg_loader]['exts'])}"
-    except KeyError:
-        print(f"Segmentation loader '{args.seg_loader}' does not have defined file extensions.")
-        print(f"Available segmentation loaders: {', '.join(seg_loaders.keys())}")
-        return 1
-
     # Check analysis setup
     if args.analysis_funcs is None:
         args.analysis_funcs = list(analysis_funcs[args.analysis_type].keys())
@@ -109,22 +100,10 @@ def core_pipeline(args) -> int:
                 raise ValueError(f"analysis_kwargs: Missing required keyword argument '{kwarg}' for function '{name}' in {args.analysis_type} analysis type.")
     
     # Parsing / data loading
-    image_data = scan_loader(args.scan_path, args.phantom_path, **args.scan_loader_kwargs) # Load signal data
-    seg_data = seg_loader(image_data, args.seg_path, scan_path=args.scan_path, phantom_path=args.phantom_path, **args.seg_loader_kwargs) # Load seg data
-    
-    # Analysis
-    if image_data.spatial_dims < image_data.rf_data.ndim:
-        image_data.rf_data = image_data.rf_data[seg_data.frame]
-        image_data.bmode = image_data.bmode[seg_data.frame]
-        if image_data.sc_bmode is not None:
-            image_data.sc_bmode = image_data.sc_bmode[seg_data.frame]
-        assert image_data.bmode.ndim == image_data.spatial_dims, \
-            "Bmode data dimensions do not match spatial dimensions!"
-    elif image_data.spatial_dims > image_data.rf_data.ndim:
-        raise ValueError("Spatial dimensions are greater than RF data dimensions!")
+    image_data = scan_loader(args.scan_path, **args.scan_loader_kwargs) # Load signal data
+    seg_data = seg_loader(image_data, args.seg_path, scan_path=args.scan_path, **args.seg_loader_kwargs) # Load seg data
     analysis_obj = analysis_class(image_data, seg_data, args.analysis_funcs, **args.analysis_kwargs)
-    analysis_obj.compute_paramaps()
-    analysis_obj.compute_single_window()
+    analysis_obj.compute_curves()
     
     return 0
 

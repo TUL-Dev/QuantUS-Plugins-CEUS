@@ -42,6 +42,12 @@ def load_bolus_mask(image_data: UltrasoundImage, seg_path: str, **kwargs) -> sit
     bolus_seg = (np.max(bolus_seg, axis=3) > 0).astype(np.uint8)
     bolus_seg = bolus_seg[:, :image_data.pixel_data.shape[1], :]
     bolus_seg = binary_fill_holes(bolus_seg).astype(np.uint8)
+    for i in range(bolus_seg.shape[0]):
+        bolus_seg[i, :, :] = binary_fill_holes(bolus_seg[i, :, :])
+    for i in range(bolus_seg.shape[1]):
+        bolus_seg[:, i, :] = binary_fill_holes(bolus_seg[:, i, :])
+    for i in range(bolus_seg.shape[2]):
+        bolus_seg[:, :, i] = binary_fill_holes(bolus_seg[:, :, i])
     
     out = CeusSeg()
     out.seg_mask = bolus_seg

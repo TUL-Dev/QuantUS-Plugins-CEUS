@@ -1,3 +1,2 @@
-from .analysis import UltrasoundImage
+from .image import UltrasoundImage
 from .seg import CeusSeg
-from .analysis import TtcAnalysisBase

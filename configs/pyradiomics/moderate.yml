@@ -2,9 +2,10 @@ setting:
   # Core params
   normalize: true
   normalizeScale: 100
-  # geometryTolerance: 0.01 # Mask validation
-  # resampledPixelSpacing: [1.0, 1.0, 1.0]
-  # padDistance: 5
+  geometryTolerance: 0.01 # Mask validation
+  resampledPixelSpacing: [1.0, 1.0, 1.0]
+  interpolator: sitkNearestNeighbor # more efficient
+  padDistance: 5
   preCrop: true
 
   # Params to optimize
@@ -15,19 +16,19 @@ setting:
 # Image types to use: “Original” for unfiltered image, for possible filters, see documentation.
 imageType:
   Original: {}
-  # LoG:
-  #   sigma: [1.0, 2.0, 3.0]
-  # Wavelet: {}
-  # Square: {}
-  # Exponential: {}
-  # Gradient: {}
-  # LBP3D: {}
+  LoG:
+    sigma: [1.0, 2.0, 3.0]
+  Wavelet: {}
+  Square: {}
+  Exponential: {}
+  Gradient: {}
+  LBP3D: {}
 
 featureClass:
   # shape:
   # firstorder: - not needed because of normalization and not TTC
-  # glcm:  # Disable SumAverage by specifying all other GLCM features available
-  # glrlm:
-  # glszm:
-  # gldm:
+  glcm:  # Disable SumAverage by specifying all other GLCM features available
+  glrlm:
+  glszm:
+  gldm:
   ngtdm:

@@ -27,13 +27,13 @@ class TtcCurvesAnalysis:
         self.image_data = image_data
         self.curves: Dict[str, List[float]] = {}  # Dictionary to hold computed curves
         self.curve_funcs: Dict[str, callable] = {name: globals()[name]['func'] for name in self.curve_groups if name in globals()}
-        
-        self.time_arr = np.arange(self.image_data.pixel_data.shape[3])*self.image_data.frame_rate
         self.curves_output_path = self.analysis_kwargs.get('curves_output_path', None)
         
     def compute_curves(self):
         """Compute UTC parameters for each window in the ROI, creating a parametric map.
         """
+        self.time_arr = np.arange(self.image_data.pixel_data.shape[3])*self.image_data.frame_rate
+        
         for frame in tqdm(range(self.image_data.intensities_for_analysis.shape[3]), desc="Computing curves"):
             frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
             self.extract_frame_features(frame_data, self.seg_data.seg_mask)

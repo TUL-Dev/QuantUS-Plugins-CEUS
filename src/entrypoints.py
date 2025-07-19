@@ -5,6 +5,9 @@ from src.image_loading.options import get_scan_loaders
 from src.seg_loading.options import get_seg_loaders
 from src.ttc_analysis.options import get_analysis_types
 from src.ttc_analysis.ttc_curves.framework import TtcCurvesAnalysis
+from src.curve_loading.options import get_curves_loaders
+from src.curve_quantification.framework import CurveQuantifications
+from src.curve_quantification.options import get_quantification_funcs
 
 def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> UltrasoundImage:
     """Load the scan data using the specified scan loader.
@@ -100,3 +103,57 @@ def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: Ceu
     analysis_obj.compute_curves()
     
     return analysis_obj
+
+def load_curves_step(curves_path: str, curves_loader_type: str,
+                     **kwargs) -> TtcCurvesAnalysis:
+    """Load TTC curves from a specified path.
+    
+    Args:
+        curves_path (str): Path to the CSV file containing TTC curves.
+        **kwargs: Additional keyword arguments for loading curves.
+    
+    Returns:
+        TtcCurvesAnalysis: Loaded TTC curves analysis object.
+    """
+    curves_loaders = get_curves_loaders()
+
+    try:
+        curve_loader = curves_loaders[curves_loader_type]
+    except KeyError:
+        print(f'Curve loader "{curves_loader_type}" is not available!')
+        print(f"Available curve loaders: {', '.join(curves_loaders.keys())}")
+        return 1
+
+    return curve_loader(curves_path, **kwargs)
+
+def curve_quantification_step(analysis_obj: TtcCurvesAnalysis, function_names: list[str],
+                          output_path: str, **kwargs) -> CurveQuantifications:
+    """
+    Perform curve quantifications using the specified analysis objects and function names.
+
+    Args:
+        analysis_obj (TtcCurvesAnalysis): The analysis object containing the curves.
+        function_names (List[str]): List of function names to apply for quantification.
+        output_path (str): The path to save the output CSV file.
+        **kwargs: Additional keyword arguments for the quantification functions.
+
+    Returns:
+        Dict[str, float]: A dictionary containing the computed quantifications.
+    """
+    quant_funcs = get_quantification_funcs()
+
+    if not len(function_names):
+        function_names = list(quant_funcs.keys())
+
+    for func_name in function_names:
+        if func_name not in quant_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in quantification functions.\nAvailable functions: {', '.join(quant_funcs.keys())}")
+        required_kwargs = getattr(quant_funcs[func_name], 'kwarg_names', [])
+        for kwarg in required_kwargs:
+            if kwarg not in kwargs:
+                raise ValueError(f"kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+
+    curve_quant = CurveQuantifications(analysis_obj, function_names, output_path, **kwargs)
+    curve_quant.compute_quantifications()
+
+    return curve_quant

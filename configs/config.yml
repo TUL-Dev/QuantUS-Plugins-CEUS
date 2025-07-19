@@ -20,3 +20,11 @@ analysis_kwargs:
     - /home/das/QuantUS_Projs/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate.yml
 analysis_funcs:
   - pyradiomics
+
+# Step 5: Curve quantification
+curve_quant_function_names: []
+curve_quant_output_path: PLACEHOLDER
+curve_quant_kwargs:
+  curves_to_fit: 
+    - moderate_diagnostics_Image-original_Mean
+  n_frames_to_analyze: 1000

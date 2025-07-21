@@ -6,6 +6,9 @@ from pathlib import Path
 from src.image_loading.options import get_scan_loaders, scan_loader_args
 from src.seg_loading.options import get_seg_loaders, seg_loader_args
 from src.ttc_analysis.options import get_analysis_types, analysis_args
+from src.curve_loading.options import get_curves_loaders
+from src.curve_quantification.options import get_quantification_funcs
+from src.curve_quantification.framework import CurveQuantifications
 
 DESCRIPTION = """
 QuantUS | Custom US Analysis Workflows
@@ -20,6 +23,11 @@ def main_cli() -> int:
     args.scan_loader_kwargs = json.loads(args.scan_loader_kwargs)
     args.seg_loader_kwargs = json.loads(args.seg_loader_kwargs)
     args.analysis_kwargs = json.loads(args.analysis_kwargs)
+    args.curves_loader_kwargs = json.loads(args.curves_loader_kwargs) if args.curves_loader_kwargs else {}
+    args.curve_quant_kwargs = json.loads(args.curve_quant_kwargs) if args.curve_quant_kwargs else {}
+
+    if hasattr(args, 'curves_path') and args.curves_path is not None:
+        return preloaded_pipeline(args)
     
     return core_pipeline(args)    
 
@@ -33,6 +41,11 @@ def main_yaml() -> int:
     args.scan_loader_kwargs = {} if args.scan_loader_kwargs is None else args.scan_loader_kwargs
     args.seg_loader_kwargs = {} if args.seg_loader_kwargs is None else args.seg_loader_kwargs
     args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs
+    args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
+    args.curve_quant_kwargs = {} if args.curve_quant_kwargs is None else args.cur
+    
+    if hasattr(args, 'curves_path') and args.curves_path is not None:
+        return preloaded_pipeline(args)
     
     return core_pipeline(args)
 
@@ -49,9 +62,51 @@ def main_dict(config: dict) -> int:
     args.scan_loader_kwargs = {} if args.scan_loader_kwargs is None else args.scan_loader_kwargs
     args.seg_loader_kwargs = {} if args.seg_loader_kwargs is None else args.seg_loader_kwargs
     args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs
+    args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
+    args.curve_quant_kwargs = {} if args.curve_quant_kwargs is None else args.curve_quant_kwargs
+    
+    if hasattr(args, 'curves_path') and args.curves_path is not None:
+        return preloaded_pipeline(args)
     
     return core_pipeline(args)
+
+def preloaded_pipeline(args) -> int:
+    """Runs the full QuantUS CEUS workflow with preloaded curves.
+
+    Args:
+        args (argparse.Namespace): Command-line arguments.
+
+    Returns:
+        int: Exit code (0 for success, non-zero for failure).
+    """
+    curves_loaders = get_curves_loaders()
+    quantification_funcs = get_quantification_funcs()
     
+    # Get applicable plugins
+    try:
+        curves_loader = curves_loaders[args.curves_loader]
+    except KeyError:
+        print(f'Curves loader "{args.curves_loader}" is not available!')
+        print(f"Available curves loaders: {', '.join(curves_loaders.keys())}")
+        return 1
+    
+    # Check curve quantification setup
+    if not len(args.curve_quant_funcs):
+        args.curve_quant_funcs = list(quantification_funcs.keys())
+    for func_name in args.curve_quant_funcs:
+        if func_name not in quantification_funcs:
+            raise ValueError(f"Function '{func_name}' not found in curve quantification functions.\nAvailable functions: {', '.join(quantification_funcs.keys())}")
+        required_kwargs = getattr(quantification_funcs[func_name], 'kwarg_names', [])
+        for kwarg in required_kwargs:
+            if kwarg not in args.curve_quant_kwargs:
+                raise ValueError(f"curve_quant_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+    
+    analysis_obj = curves_loader(args.curves_path, **args.curves_loader_kwargs)
+    curve_quant_obj = CurveQuantifications(analysis_obj, args.curve_quant_funcs, args.curve_quant_output_path, **args.curve_quant_kwargs)
+    curve_quant_obj.compute_quantifications()
+    
+    return 0
+
 def core_pipeline(args) -> int:
     """Runs the full QuantUS workflow. Different from entrypoints in that all requirements are checked at the start rather than dynamically.
     """

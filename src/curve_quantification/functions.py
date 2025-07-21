@@ -1,4 +1,3 @@
-import logging
 import numpy as np
 from scipy.stats import skew, kurtosis, entropy
 
@@ -23,6 +22,12 @@ def first_order(analysis_objs: TtcCurvesAnalysis, data_dict: dict,
         data_dict[f'Min_{name}'] = curve.min()
         data_dict[f'Median_{name}'] = np.median(curve)
         data_dict[f'Variance_{name}'] = np.var(curve)
+        if data_dict[f'Variance_{name}'] < 1e-10:
+            data_dict[f'Skewness_{name}'] = 0.0
+            data_dict[f'Kurtosis_{name}'] = 3.0  # Normal kurtosis
+        else:
+            data_dict[f'Skewness_{name}'] = skew(curve)
+            data_dict[f'Kurtosis_{name}'] = kurtosis(curve)
         data_dict[f'Skewness_{name}'] = skew(curve)
         data_dict[f'Kurtosis_{name}'] = kurtosis(curve)
         data_dict[f'Range_{name}'] = curve.max() - curve.min()

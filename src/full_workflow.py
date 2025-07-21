@@ -59,15 +59,15 @@ def main_dict(config: dict) -> int:
         int: Exit code (0 for success, non-zero for failure).
     """
     args = argparse.Namespace(**config)
+    args.curve_quant_kwargs = {} if args.curve_quant_kwargs is None else args.curve_quant_kwargs
+
+    if hasattr(args, 'curves_path') and args.curves_path is not None:
+        args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
+        return preloaded_pipeline(args)
+
     args.scan_loader_kwargs = {} if args.scan_loader_kwargs is None else args.scan_loader_kwargs
     args.seg_loader_kwargs = {} if args.seg_loader_kwargs is None else args.seg_loader_kwargs
-    args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs
-    args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
-    args.curve_quant_kwargs = {} if args.curve_quant_kwargs is None else args.curve_quant_kwargs
-    
-    if hasattr(args, 'curves_path') and args.curves_path is not None:
-        return preloaded_pipeline(args)
-    
+    args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs    
     return core_pipeline(args)
 
 def preloaded_pipeline(args) -> int:
@@ -113,6 +113,7 @@ def core_pipeline(args) -> int:
     scan_loaders = get_scan_loaders()
     seg_loaders = get_seg_loaders()
     analysis_types, analysis_funcs = get_analysis_types()
+    quantification_funcs = get_quantification_funcs()
     
     # Get applicable plugins
     try:
@@ -154,11 +155,24 @@ def core_pipeline(args) -> int:
             if kwarg not in args.analysis_kwargs:
                 raise ValueError(f"analysis_kwargs: Missing required keyword argument '{kwarg}' for function '{name}' in {args.analysis_type} analysis type.")
     
+    # Check curve quantification setup
+    if not len(args.curve_quant_funcs):
+        args.curve_quant_funcs = list(quantification_funcs.keys())
+    for func_name in args.curve_quant_funcs:
+        if func_name not in quantification_funcs:
+            raise ValueError(f"Function '{func_name}' not found in curve quantification functions.\nAvailable functions: {', '.join(quantification_funcs.keys())}")
+        required_kwargs = getattr(quantification_funcs[func_name], 'kwarg_names', [])
+        for kwarg in required_kwargs:
+            if kwarg not in args.curve_quant_kwargs:
+                raise ValueError(f"curve_quant_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+
     # Parsing / data loading
     image_data = scan_loader(args.scan_path, **args.scan_loader_kwargs) # Load signal data
     seg_data = seg_loader(image_data, args.seg_path, scan_path=args.scan_path, **args.seg_loader_kwargs) # Load seg data
     analysis_obj = analysis_class(image_data, seg_data, args.analysis_funcs, **args.analysis_kwargs)
     analysis_obj.compute_curves()
+    curve_quant_obj = CurveQuantifications(analysis_obj, args.curve_quant_funcs, args.curve_quant_output_path, **args.curve_quant_kwargs)
+    curve_quant_obj.compute_quantifications()
     
     return 0
 

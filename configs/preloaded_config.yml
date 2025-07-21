@@ -1,0 +1,11 @@
+# Curve loading configuration
+curves_path: PLACEHOLDER
+curves_loader: "load_ttc_curves"
+curves_loader_kwargs: {}
+
+# Curve quantification configuration
+curve_quant_output_path: "quantification_results.csv"
+curve_quant_funcs: []  # Empty list will use all available functions
+curve_quant_kwargs:
+  curves_to_fit: ['moderate_diagnostics_Image-original_Mean']
+  n_frames_to_analyze: 100

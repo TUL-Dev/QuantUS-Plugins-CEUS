@@ -33,19 +33,21 @@ class TtcCurvesAnalysis:
         """Compute UTC parameters for each window in the ROI, creating a parametric map.
         """
         self.time_arr = np.arange(self.image_data.pixel_data.shape[3])*self.image_data.frame_rate
-        
-        for frame in tqdm(range(self.image_data.intensities_for_analysis.shape[3]), desc="Computing curves"):
+
+        for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
+                                    desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
             frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
-            self.extract_frame_features(frame_data, self.seg_data.seg_mask)
+            self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
 
         if self.curves_output_path is not None:
             self.save_curves()
 
-    def extract_frame_features(self, frame: np.ndarray, mask: np.ndarray):
+    def extract_frame_features(self, frame: np.ndarray, mask: np.ndarray, frame_ix: int):
         """Compute parametric map values for a single frame.
         Args:
             frame (np.ndarray): The ultrasound frame data.
             mask (np.ndarray): The mask for the region of interest.
+            frame_ix (int): The index of the frame being processed.
         Returns:
             np.ndarray: The computed parametric map values for the frame.
         """
@@ -54,13 +56,21 @@ class TtcCurvesAnalysis:
             curve_function = self.curve_funcs[curve_group]
             curve_names, vals = curve_function(self.image_data, frame, mask, **self.analysis_kwargs)
 
-            for name, val in zip(curve_names, vals):
-                if name in used_curve_names:
-                    raise ValueError(f"Curve name '{name}' is being computed multiple times.")
-                if not name in self.curves.keys():
-                    self.curves[name] = []
-                self.curves[name].append(val)
-                used_curve_names.append(name)
+            if not len(curve_names) and not len(vals):
+                if frame_ix:
+                    print(self.image_data.scan_name, self.seg_data.seg_name, frame_ix, "No curves computed for this frame.")
+                    for name in self.curves.keys():
+                        self.curves[name].append(self.curves[name][-1])  # Append last value if no new values
+            else:
+                for name, val in zip(curve_names, vals):
+                    if name in used_curve_names:
+                        raise ValueError(f"Curve name '{name}' is being computed multiple times.")
+                    if not name in self.curves.keys():
+                        self.curves[name] = []
+                    self.curves[name].append(val)
+                    used_curve_names.append(name)
+                    if frame_ix == len(self.curves[name]):
+                        self.curves[name].append(val)
 
     def save_curves(self):
         """Save the computed curves to a CSV file.

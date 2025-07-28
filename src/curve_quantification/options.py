@@ -12,7 +12,7 @@ def get_quantification_funcs() -> Dict[str, callable]:
     module_file = module.__file__
     defined_funcs = set()
     for name, obj in inspect.getmembers(module, inspect.isfunction):
-        if inspect.getsourcefile(obj) == module_file:
+        if not name.startswith("_") and inspect.getsourcefile(obj) == module_file:
             defined_funcs.add(name)
     functions = {name: obj for name, obj in inspect.getmembers(module, inspect.isfunction) if name in defined_funcs}
 

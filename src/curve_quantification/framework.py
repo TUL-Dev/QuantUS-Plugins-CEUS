@@ -50,7 +50,7 @@ class CurveQuantifications:
             if func_name in globals():
                 # Handle function dependencies and outputs
                 function = globals()[func_name]
-                deps = getattr(function, 'deps', [])
+                deps = getattr(function, 'dependencies', [])
                 for dep in deps:
                     process_deps(dep)
             else:

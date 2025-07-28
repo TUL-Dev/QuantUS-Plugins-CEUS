@@ -32,13 +32,17 @@ def pyradiomics(image_data: UltrasoundImage, frame: np.ndarray, mask: np.ndarray
     mask_im = sitk.GetImageFromArray(mask.T)
     mask_im.SetSpacing(tuple(float(x) for x in image_data.pixdim))
 
+    feature_names = []; feature_vals = []
     for config_path in kwargs['pyradiomics_config_paths']:
         if not isinstance(config_path, str):
             raise ValueError("Each config path must be a string.")
-        extractor = featureextractor.RadiomicsFeatureExtractor(config_path)
-        features = extractor.execute(image, mask_im)
+        try:
+            extractor = featureextractor.RadiomicsFeatureExtractor(config_path)
+            features = extractor.execute(image, mask_im)
+        except Exception as e:
+            logging.error(f"Error occurred while extracting features: {e}")
+            continue
 
-        feature_names = []; feature_vals = []
         for name in features.keys():
             val_type = type(features[name])
             if val_type == list or val_type == dict or val_type == tuple or val_type == str:

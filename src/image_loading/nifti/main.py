@@ -26,7 +26,10 @@ class EntryClass(UltrasoundImage):
         pixdim = header.get_zooms()[:3]  # tuple of pixel dimensions
         frame_rate = 1.0 / header.get_zooms()[3] if len(header.get_zooms()) > 3 else None
 
-        self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8).T
+        if kwargs.get('transpose', False):
+            self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8).T
+        else:
+            self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8)
         self.pixdim = pixdim
         self.frame_rate = frame_rate
         self.intensities_for_analysis = self.pixel_data

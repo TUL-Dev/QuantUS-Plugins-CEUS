@@ -1,9 +1,40 @@
+from os import name
 import numpy as np
 from scipy.stats import skew, kurtosis, entropy
 
 from ..ttc_analysis.ttc_curves.framework import TtcCurvesAnalysis
 from .decorators import required_kwargs, dependencies
 from .transforms import fit_lognormal_curve
+
+def _compute_firstorder_stats(curve: np.ndarray, data_dict: dict, name_prefix: str, name_suffix: str = '') -> None:
+    """
+    Compute first-order statistics for a given curve and store them in the data dictionary.
+    
+    Args:
+        curve (np.ndarray): The curve data to analyze.
+        data_dict (dict): Dictionary to store the computed statistics.
+        name_prefix (str): Prefix for the keys in the data dictionary.
+        name_suffix (str): Suffix for the keys in the data dictionary.
+    """
+    if len(curve) == 0:
+        return
+
+    data_dict[f'{name_prefix}Mean{name_suffix}'] = np.mean(curve)
+    data_dict[f'{name_prefix}Std{name_suffix}'] = np.std(curve)
+    data_dict[f'{name_prefix}Max{name_suffix}'] = np.max(curve)
+    data_dict[f'{name_prefix}Min{name_suffix}'] = np.min(curve)
+    data_dict[f'{name_prefix}Median{name_suffix}'] = np.median(curve)
+    data_dict[f'{name_prefix}Variance{name_suffix}'] = np.var(curve)
+    if np.var(curve) < 1e-10:
+        data_dict[f'{name_prefix}Skewness{name_suffix}'] = 0.0
+        data_dict[f'{name_prefix}Kurtosis{name_suffix}'] = 3.0  # Normal kurtosis
+    else:
+        data_dict[f'{name_prefix}Skewness{name_suffix}'] = skew(curve)
+        data_dict[f'{name_prefix}Kurtosis{name_suffix}'] = kurtosis(curve)
+    data_dict[f'{name_prefix}Range{name_suffix}'] = np.max(curve) - np.min(curve)
+    data_dict[f'{name_prefix}InterquartileRange{name_suffix}'] = np.percentile(curve, 75) - np.percentile(curve, 25)
+    data_dict[f'{name_prefix}Entropy{name_suffix}'] = entropy(curve)
+    data_dict[f'{name_prefix}Energy{name_suffix}'] = np.sum(curve ** 2)
 
 def first_order(analysis_objs: TtcCurvesAnalysis, data_dict: dict, 
                 n_frames_to_analyze: int, **kwargs) -> None:
@@ -15,25 +46,8 @@ def first_order(analysis_objs: TtcCurvesAnalysis, data_dict: dict,
 
     # Compute first-order statistics
     for name, curve in analysis_objs.curves.items():
-        curve = curve[:n_frames_to_analyze]
-        data_dict[f'Mean_{name}'] = curve.mean()
-        data_dict[f'Std_{name}'] = curve.std()
-        data_dict[f'Max_{name}'] = curve.max()
-        data_dict[f'Min_{name}'] = curve.min()
-        data_dict[f'Median_{name}'] = np.median(curve)
-        data_dict[f'Variance_{name}'] = np.var(curve)
-        if data_dict[f'Variance_{name}'] < 1e-10:
-            data_dict[f'Skewness_{name}'] = 0.0
-            data_dict[f'Kurtosis_{name}'] = 3.0  # Normal kurtosis
-        else:
-            data_dict[f'Skewness_{name}'] = skew(curve)
-            data_dict[f'Kurtosis_{name}'] = kurtosis(curve)
-        data_dict[f'Skewness_{name}'] = skew(curve)
-        data_dict[f'Kurtosis_{name}'] = kurtosis(curve)
-        data_dict[f'Range_{name}'] = curve.max() - curve.min()
-        data_dict[f'Interquartile_Range_{name}'] = np.percentile(curve, 75) - np.percentile(curve, 25)
-        data_dict[f'Entropy_{name}'] = entropy(curve)
-        data_dict[f'Energy_{name}'] = np.sum(curve ** 2)
+        curve = np.array(curve[:n_frames_to_analyze])
+        _compute_firstorder_stats(curve, data_dict, name_prefix='', name_suffix=f'_{name}')
 
 @required_kwargs('curves_to_fit')
 def lognormal_fit(analysis_objs: TtcCurvesAnalysis, data_dict: dict, 
@@ -60,6 +74,7 @@ def lognormal_fit(analysis_objs: TtcCurvesAnalysis, data_dict: dict,
             data_dict[f'PE_Ix_{name}'] = pe_loc
 
 @dependencies('lognormal_fit')
+@required_kwargs('tic_name', 'curves_to_fit')
 def wash_rates(analysis_objs: TtcCurvesAnalysis, data_dict: dict, 
                n_frames_to_analyze: int, **kwargs) -> None:
     """
@@ -69,11 +84,14 @@ def wash_rates(analysis_objs: TtcCurvesAnalysis, data_dict: dict,
     assert isinstance(data_dict, dict), 'data_dict must be a dictionary'
 
     curves_to_fit = kwargs.get('curves_to_fit', [])
-    if not len(curves_to_fit):
-        return
-    tic_name = curves_to_fit[0]
-    matching_names = [name for name in analysis_objs.curves.keys() if tic_name in name]
-    tic_name = matching_names[0]
+    tic_name = kwargs.get('tic_name', None)
+    fitted_curves = [name for curve_name in curves_to_fit for name in analysis_objs.curves.keys() 
+                     if curve_name.lower() in name.lower()]
+    
+    assert tic_name is not None, 'tic_name must be provided'
+    assert tic_name in analysis_objs.curves, f'{tic_name} not found in analysis_objs.curves'
+    assert tic_name in fitted_curves, f'{tic_name} not found in fitted curves'
+
     pe_ix = data_dict[f'PE_Ix_{tic_name}']
 
     for name, curve in analysis_objs.curves.items():
@@ -96,3 +114,48 @@ def wash_rates(analysis_objs: TtcCurvesAnalysis, data_dict: dict,
             wash_out_rate = np.nan
         data_dict[f'WashInRate_{name}'] = wash_in_rate
         data_dict[f'WashOutRate_{name}'] = wash_out_rate
+
+@required_kwargs('tic_name')
+def dte(analysis_objs: TtcCurvesAnalysis, data_dict: dict, n_frames_to_analyze: int, **kwargs) -> None:
+    """
+    Compute the DTE (Dynamic Time Elasticity) from the curves.
+    """
+    assert isinstance(analysis_objs, TtcCurvesAnalysis), 'analysis_objs must be a TtcCurvesAnalysis'
+    assert isinstance(data_dict, dict), 'data_dict must be a dictionary'
+    
+    tic_name = kwargs.get('tic_name', None)
+    assert tic_name is not None, 'tic_name must be provided'
+    assert tic_name in analysis_objs.curves, f'{tic_name} not found in analysis_objs.curves'
+
+    flash_ix = np.argmax(analysis_objs.curves[tic_name])
+    preflash_ix = flash_ix - 5 if flash_ix - 5 >= 0 else 0
+    postflash_ix = flash_ix + 5 if flash_ix + 5 < len(analysis_objs.curves[tic_name]) else len(analysis_objs.curves[tic_name]) - 1
+
+    for curve_name, curve in analysis_objs.curves.items():
+        data_dict[f'DTE_{curve_name}'] = curve[preflash_ix] - curve[postflash_ix]
+
+@dependencies('lognormal_fit')
+@required_kwargs('tic_name')
+def cmus_firstorder(analysis_objs: TtcCurvesAnalysis, data_dict: dict, n_frames_to_analyze: int, **kwargs) -> None:
+    """
+    Compute first-order statistics for each of the 3 major sections
+    of a C-MUS curve: wash-in, wash-out before flash, and post-flash.
+    """
+    assert isinstance(analysis_objs, TtcCurvesAnalysis), 'analysis_objs must be a TtcCurvesAnalysis'
+    assert isinstance(data_dict, dict), 'data_dict must be a dictionary'
+
+    tic_name = kwargs.get('tic_name', None)
+    assert tic_name is not None, 'tic_name must be provided'
+    assert tic_name in analysis_objs.curves, f'{tic_name} not found in analysis_objs.curves'
+
+    flash_ix = np.argmax(analysis_objs.curves[tic_name])
+    preflash_ix = flash_ix - 5 if flash_ix - 5 >= 0 else 0
+    postflash_ix = flash_ix + 5 if flash_ix + 5 < len(analysis_objs.curves[tic_name]) else len(analysis_objs.curves[tic_name]) - 1
+    pe_ix = data_dict[f'PE_Ix_{tic_name}']; pe_ix = max(pe_ix, 0)
+    pe_ix = pe_ix if pe_ix < postflash_ix else postflash_ix - 1
+
+    for curve_name, curve in analysis_objs.curves.items():
+        for section, ix_range in zip(['WashIn', 'WashOutPreFlash', 'PostFlash'], 
+                                 [(0, pe_ix), (pe_ix, preflash_ix), (postflash_ix, len(curve))]):
+            section_curve = np.array(curve[ix_range[0]:ix_range[1]])
+            _compute_firstorder_stats(section_curve, data_dict, name_prefix=f'{section}_', name_suffix=f'_{curve_name}')

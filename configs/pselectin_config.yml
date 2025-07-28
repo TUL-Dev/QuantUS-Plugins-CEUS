@@ -1,0 +1,32 @@
+# Screen 1: Scan loader
+scan_loader: nifti
+
+# Screen 2: Scan inputs
+scan_path: PLACEHOLDER
+scan_loader_kwargs:
+  transpose: False
+
+# Screen 3: Segmentation (either drawing or saved)
+seg_path: PLACEHOLDER
+seg_loader: nifti_voi
+seg_loader_kwargs:
+  assert_scan: False
+  assert_phantom: False
+
+# Screen 4: Analysis
+analysis_type: ttc_curves
+analysis_kwargs:
+  curves_output_path: PLACEHOLDER
+  pyradiomics_config_paths:
+    - configs/pyradiomics/moderate-pselectin.yml
+analysis_funcs:
+  - pyradiomics
+
+# Step 5: Curve quantification configuration
+curve_quant_output_path: PLACEHOLDER
+curve_quant_funcs: []  # Empty list will use all available functions
+curve_quant_kwargs:
+  curves_to_fit:
+    - moderate-pselectin_diagnostics_Image-original_Mean
+  n_frames_to_analyze: 100
+  tic_name: moderate-pselectin_diagnostics_Image-original_Mean

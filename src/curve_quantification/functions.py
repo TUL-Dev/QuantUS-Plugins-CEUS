@@ -1,4 +1,3 @@
-from os import name
 import numpy as np
 from scipy.stats import skew, kurtosis, entropy
 
@@ -132,7 +131,7 @@ def dte(analysis_objs: TtcCurvesAnalysis, data_dict: dict, n_frames_to_analyze: 
     postflash_ix = flash_ix + 5 if flash_ix + 5 < len(analysis_objs.curves[tic_name]) else len(analysis_objs.curves[tic_name]) - 1
 
     for curve_name, curve in analysis_objs.curves.items():
-        data_dict[f'DTE_{curve_name}'] = curve[preflash_ix] - curve[postflash_ix]
+        data_dict[f'DTE_{curve_name}'] = np.median(curve[preflash_ix-4:preflash_ix+1]) - np.median(curve[postflash_ix: postflash_ix+5])
 
 @dependencies('lognormal_fit')
 @required_kwargs('tic_name')
@@ -159,3 +158,18 @@ def cmus_firstorder(analysis_objs: TtcCurvesAnalysis, data_dict: dict, n_frames_
                                  [(0, pe_ix), (pe_ix, preflash_ix), (postflash_ix, len(curve))]):
             section_curve = np.array(curve[ix_range[0]:ix_range[1]])
             _compute_firstorder_stats(section_curve, data_dict, name_prefix=f'{section}_', name_suffix=f'_{curve_name}')
+
+@required_kwargs('tic_name')
+def auc_no_fit(analysis_objs: TtcCurvesAnalysis, data_dict: dict, n_frames_to_analyze: int, **kwargs) -> None:
+    """Compute the area under the curve (AUC) of the entire TIC without fitting a log-normal curve.
+    """
+    assert isinstance(analysis_objs, TtcCurvesAnalysis), 'analysis_objs must be a TtcCurvesAnalysis'
+    assert isinstance(data_dict, dict), 'data_dict must be a dictionary'
+
+    tic_name = kwargs.get('tic_name', None)
+    assert tic_name is not None, 'tic_name must be provided'
+    assert tic_name in analysis_objs.curves, f'{tic_name} not found in analysis_objs.curves'
+
+    curve = np.array(analysis_objs.curves[tic_name])
+    curve /= np.max(curve)  # Normalize the curve
+    data_dict[f'AUC_NoFit_{tic_name}'] = np.trapz(curve, analysis_objs.time_arr)

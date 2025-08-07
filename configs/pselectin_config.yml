@@ -17,16 +17,13 @@ seg_loader_kwargs:
 analysis_type: ttc_curves
 analysis_kwargs:
   curves_output_path: PLACEHOLDER
-  pyradiomics_config_paths:
-    - configs/pyradiomics/moderate-pselectin.yml
 analysis_funcs:
-  - pyradiomics
+  - tic
 
 # Step 5: Curve quantification configuration
 curve_quant_output_path: PLACEHOLDER
-curve_quant_funcs: []  # Empty list will use all available functions
+curve_quant_funcs:
+  - auc_no_fit
+  - dte
 curve_quant_kwargs:
-  curves_to_fit:
-    - moderate-pselectin_diagnostics_Image-original_Mean
-  n_frames_to_analyze: 100
-  tic_name: moderate-pselectin_diagnostics_Image-original_Mean
+  tic_name: TIC

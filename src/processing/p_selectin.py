@@ -174,8 +174,10 @@ def analyze_pselectin_data(feb1_root_path: str, feb2_root_path: str, july_root_p
     july_scanname_to_path = {
         july_scan_file.name[:-7]: july_scan_file for july_scan_file in Path(july_root_path).glob('**/*[0-9][0-9].nii.gz')
     }
-    skipped_scanname = ['20190218130746.412', '20190213120637.539']
-
+    skipped_scanname = ['20190218130746.412', '20190213120637.539',
+                        '20190215152929.369'] # spinning issue
+    skipped_scanname += ['20190727100541.611'] # washout only. Flash appears to occur after all contrast is gone
+    
     scan_seg_pairs = []
     for feb_seg_file in Path(feb_voi_dir).glob('201902*.nii.gz'):
         scan_name = feb_seg_file.name[:18]
@@ -193,7 +195,7 @@ def analyze_pselectin_data(feb1_root_path: str, feb2_root_path: str, july_root_p
         else:
             raise ValueError(f"Scan file not found for {feb_seg_file.name} in February datasets")
         scan_seg_pairs.append((scan_file, feb_seg_file, mouse_name, batch, day))
-    
+        
     ix = 0
     for scan_file, feb_seg_file, mouse_name, batch, day in tqdm(scan_seg_pairs, desc="Analyzing February data"):
         if ix < 4:

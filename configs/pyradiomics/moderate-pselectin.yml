@@ -14,18 +14,18 @@ setting:
 # Image types to use: “Original” for unfiltered image, for possible filters, see documentation.
 imageType:
   Original: {}
-  LoG:
-    sigma: [1.0, 2.0, 3.0]
-  Wavelet: {}
-  Square: {}
-  Exponential: {}
-  Gradient: {}
-  LBP3D: {}
+  # LoG:
+  #   sigma: [1.0, 2.0, 3.0]
+  # Wavelet: {}
+  # Square: {}
+  # Exponential: {}
+  # Gradient: {}
+  # LBP3D: {}
 
 featureClass:
   # shape:
   # firstorder: - not needed because of normalization and not TTC
-  glcm:  # Disable SumAverage by specifying all other GLCM features available
+  glcm:
   glrlm:
   glszm:
   gldm:

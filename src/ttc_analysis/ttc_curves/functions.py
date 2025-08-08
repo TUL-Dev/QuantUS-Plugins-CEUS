@@ -27,10 +27,24 @@ def pyradiomics(image_data: UltrasoundImage, frame: np.ndarray, mask: np.ndarray
     """
     assert(type(kwargs['pyradiomics_config_paths']) == list), "pyradiomics_config_paths must be a list of paths to PyRadiomics YAML configuration files."
 
+    # Define the affine transformation matrix
+    affine = np.eye(frame.ndim + 1)
+    reversed_dims = list(reversed(image_data.pixdim))
+    for i in range(frame.ndim):
+        affine[i, i] = reversed_dims[i]
+    origin = affine[:frame.ndim, -1].tolist()
+    direction_matrix = affine[:frame.ndim, :frame.ndim]
+    spacing = np.linalg.norm(direction_matrix, axis=0).tolist()
+    direction = (direction_matrix / spacing).flatten().tolist()
+
     image = sitk.GetImageFromArray(frame.T)
-    image.SetSpacing(tuple(float(x) for x in image_data.pixdim))
+    image.SetSpacing(spacing)
+    image.SetOrigin(origin)
+    image.SetDirection(direction)
     mask_im = sitk.GetImageFromArray(mask.T)
-    mask_im.SetSpacing(tuple(float(x) for x in image_data.pixdim))
+    mask_im.SetSpacing(spacing)
+    mask_im.SetOrigin(origin)
+    mask_im.SetDirection(direction)
 
     feature_names = []; feature_vals = []
     for config_path in kwargs['pyradiomics_config_paths']:

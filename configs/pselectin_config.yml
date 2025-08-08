@@ -17,13 +17,16 @@ seg_loader_kwargs:
 analysis_type: ttc_curves
 analysis_kwargs:
   curves_output_path: PLACEHOLDER
+  pyradiomics_config_paths:
+    - /home/das/QuantUS_Projs/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate-pselectin.yml
 analysis_funcs:
   - tic
+  - pyradiomics
 
 # Step 5: Curve quantification configuration
 curve_quant_output_path: PLACEHOLDER
 curve_quant_funcs:
-  - auc_no_fit
-  - dte
+  # - auc_no_fit
+  # - dte
 curve_quant_kwargs:
   tic_name: TIC

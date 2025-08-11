@@ -6,11 +6,11 @@ from tqdm import tqdm
 
 from ...data_objs.image import UltrasoundImage
 from ...data_objs.seg import CeusSeg
-from .functions import *
+from ..curve_types.functions import *
 
-class_name = "TtcCurvesAnalysis"
+class_name = "CurvesAnalysis"
 
-class TtcCurvesAnalysis:
+class CurvesAnalysis:
     """
     Class to complete RF analysis via the sliding window technique
     and generate a corresponding parametric map.
@@ -25,15 +25,14 @@ class TtcCurvesAnalysis:
         self.curve_groups = curve_groups
         self.seg_data = seg
         self.image_data = image_data
-        self.curves: Dict[str, List[float]] = {}  # Dictionary to hold computed curves
-        self.curve_funcs: Dict[str, callable] = {name: globals()[name]['func'] for name in self.curve_groups if name in globals()}
+        self.curves: List[Dict[str, List[float]]] = [{}]  # List to hold computed curves
+        self.curve_funcs: Dict[str, callable] = {name: globals()[name] for name in self.curve_groups if name in globals()}
         self.curves_output_path = self.analysis_kwargs.get('curves_output_path', None)
+        self.time_arr = np.arange(self.image_data.pixel_data.shape[3])*self.image_data.frame_rate
         
     def compute_curves(self):
         """Compute UTC parameters for each window in the ROI, creating a parametric map.
         """
-        self.time_arr = np.arange(self.image_data.pixel_data.shape[3])*self.image_data.frame_rate
-
         for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
                                     desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
             frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
@@ -59,37 +58,38 @@ class TtcCurvesAnalysis:
             if not len(curve_names) and not len(vals):
                 if frame_ix:
                     print(self.image_data.scan_name, self.seg_data.seg_name, frame_ix, "No curves computed for this frame.")
-                    for name in self.curves.keys():
-                        self.curves[name].append(self.curves[name][-1])  # Append last value if no new values
+                    for name in self.curves[0].keys():
+                        self.curves[0][name].append(self.curves[0][name][-1])  # Append last value if no new values
             else:
                 for name, val in zip(curve_names, vals):
                     if name in used_curve_names:
                         raise ValueError(f"Curve name '{name}' is being computed multiple times.")
-                    if not name in self.curves.keys():
-                        self.curves[name] = []
-                    self.curves[name].append(val)
+                    if not name in self.curves[0].keys():
+                        self.curves[0][name] = []
+                    self.curves[0][name].append(val)
                     used_curve_names.append(name)
-                    if frame_ix == len(self.curves[name]):
-                        self.curves[name].append(val)
+                    if frame_ix == len(self.curves[0][name]):
+                        self.curves[0][name].append(val)
 
     def save_curves(self):
-        """Save the computed curves to a CSV file.
-        """
-        assert type(self.curves_output_path) is str, "Export path must be a string."
-        assert self.curves_output_path.endswith('.csv'), \
-              "Export path must end with .csv to export to CSV format."
+        """Save the computed curves to a CSV file."""
+        assert isinstance(self.curves_output_path, str), "Export path must be a string."
+        assert self.curves_output_path.endswith('.csv'), "Export path must end with .csv."
 
         Path(self.curves_output_path).parent.mkdir(parents=True, exist_ok=True)
 
-        if not len(self.curves):
-            raise ValueError("No curves have been computed.")
-        
-        curve_dict = {}
-        curve_dict["Scan Name"] = self.image_data.scan_name
-        curve_dict["Segmentation Name"] = self.seg_data.seg_name
-        curve_dict["Time Array"] = self.time_arr
-        for name, values in self.curves.items():
-            curve_dict[name] = values
+        for ix, curves in enumerate(self.curves):
+            cur_out_path = self.curves_output_path.replace('.csv', '')
+            if len(self.curves) > 1:
+                cur_out_path += f'_{ix}'
+            cur_out_path += '.csv'
 
-        df = pd.DataFrame(curve_dict)
-        df.to_csv(self.curves_output_path, index=False)
+            curves_dict = curves.copy()
+            curves_dict["Scan Name"] = self.image_data.scan_name
+            curves_dict["Segmentation Name"] = self.seg_data.seg_name
+            if len(self.curves) > 1:
+                curves_dict["Window Index"] = ix
+            curves_dict["Time Array"] = self.time_arr
+
+            df = pd.DataFrame(curves_dict)
+            df.to_csv(cur_out_path, index=False)

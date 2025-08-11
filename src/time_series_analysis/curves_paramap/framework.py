@@ -52,12 +52,23 @@ class CurvesParamapAnalysis(CurvesAnalysis):
         windows = []
         ax_step = int(self.ax_vox_len * (1 - (self.ax_vox_ovrlp / 100)) / self.ax_res)
         sag_step = int(self.sag_vox_len * (1 - (self.sag_vox_ovrlp / 100)) / self.sag_res)
+        if hasattr(self, 'cor_vox_len'):
+            cor_step = int(self.cor_vox_len * (1 - (self.cor_vox_ovrlp / 100)) / self.cor_res)
+        
+        # Create minimum and maximum indices for the sliding windows based on the segmentation mask
+        mask_ixs = np.where(self.seg_data.seg_mask > 0)
+        if hasattr(self, 'cor_vox_len'):
+            min_ax, max_ax = np.min(mask_ixs[2]), np.max(mask_ixs[2])
+            min_sag, max_sag = np.min(mask_ixs[0]), np.max(mask_ixs[0])
+            min_cor, max_cor = np.min(mask_ixs[1]), np.max(mask_ixs[1])
+        else:
+            min_ax, max_ax = np.min(mask_ixs[0]), np.max(mask_ixs[0])
+            min_sag, max_sag = np.min(mask_ixs[1]), np.max(mask_ixs[1])
 
-        for ax_start in range(0, self.image_data.pixel_data.shape[0] - ax_step + 1, ax_step):
-            for sag_start in range(0, self.image_data.pixel_data.shape[1] - sag_step + 1, sag_step):
+        for ax_start in range(min_ax, max_ax, ax_step):
+            for sag_start in range(min_sag, max_sag, sag_step):
                 if hasattr(self, 'cor_vox_len'):
-                    cor_step = int(self.cor_vox_len * (1 - (self.cor_vox_ovrlp / 100)) / self.cor_res)
-                    for cor_start in range(0, self.image_data.pixel_data.shape[2] - cor_step + 1, cor_step):
+                    for cor_start in range(min_cor, max_cor, cor_step):
                         windows.append((ax_start, sag_start, cor_start, 
                                         ax_start + ax_step, sag_start + sag_step, cor_start + cor_step))
                 else:
@@ -75,13 +86,12 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                 mask = np.zeros_like(self.seg_data.seg_mask)
                 if hasattr(self, 'cor_vox_len'):
                     ax_start, sag_start, cor_start, ax_end, sag_end, cor_end = window
-                    mask = self.seg_data.seg_mask[ax_start:ax_end, 
-                                                  sag_start:sag_end, 
-                                                  cor_start:cor_end]
+                    mask[sag_start:sag_end+1, 
+                            cor_start:cor_end+1, 
+                            ax_start:ax_end+1] = 1
                 else:
                     ax_start, sag_start, ax_end, sag_end = window
-                    mask = self.image_data.intensities_for_analysis[ax_start:ax_end, 
-                                                                     sag_start:sag_end]
+                    mask[ax_start:ax_end+1, sag_start:sag_end+1] = 1
                 self.extract_frame_features(frame_data, mask, frame_ix, window_ix)
 
         if self.curves_output_path is not None:

@@ -69,16 +69,29 @@ class CurveQuantifications:
         Returns:
             Dict[str, float]: A dictionary containing the computed quantifications.
         """
-        self.data_dict = [{}] * len(self.analysis_objs.curves)
-        self.data_dict['Scan Name'] = self.analysis_objs.image_data.scan_name
-        self.data_dict['Segmentation Name'] = self.analysis_objs.seg_data.seg_name
+        self.data_dict = [{} for _ in range(len(self.analysis_objs.curves))]
 
         for curves, data_dict in zip(self.analysis_objs.curves, self.data_dict):
+            data_dict['Scan Name'] = self.analysis_objs.image_data.scan_name
+            data_dict['Segmentation Name'] = self.analysis_objs.seg_data.seg_name
+            if curves.get('Window-Axial Start Pix'):
+                data_dict['Window-Axial Start Pix'] = curves['Window-Axial Start Pix']
+                data_dict['Window-Sagittal Start Pix'] = curves['Window-Sagittal Start Pix']
+                data_dict['Window-Axial End Pix'] = curves['Window-Axial End Pix']
+                data_dict['Window-Sagittal End Pix'] = curves['Window-Sagittal End Pix']
+                if curves.get('Window-Coronal Start Pix'):
+                    data_dict['Window-Coronal Start Pix'] = curves['Window-Coronal Start Pix']
+                    data_dict['Window-Coronal End Pix'] = curves['Window-Coronal End Pix']
+
             for func in self.ordered_funcs:
                 func(self.analysis_objs, curves, data_dict, self.n_frames_to_analyze, **self.kwargs)
 
+        # Assert all data_dicts have the same keys
+        key_sets = [set(d.keys()) for d in self.data_dict]
+        first_keys = key_sets[0]
+        assert all(keys == first_keys for keys in key_sets), "Not all data_dicts have the same keys"
+
         if self.output_path:
             assert self.output_path.endswith('.csv'), 'output_path must end with .csv to export to CSV format'
-            for i, data_dict in enumerate(self.data_dict):
-                df = pd.DataFrame(data_dict, index=[0])
-                df.to_csv(f"{self.output_path}_{i}.csv", index=False)
+            df_all = pd.DataFrame(self.data_dict)
+            df_all.to_csv(self.output_path, index=False)

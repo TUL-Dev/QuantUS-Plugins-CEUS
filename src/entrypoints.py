@@ -1,5 +1,7 @@
 import copy
 
+import numpy as np
+
 from src.data_objs import UltrasoundImage, CeusSeg
 from src.image_loading.options import get_scan_loaders
 from src.seg_loading.options import get_seg_loaders
@@ -8,6 +10,8 @@ from src.time_series_analysis.curves.framework import CurvesAnalysis
 from src.curve_loading.options import get_curves_loaders
 from src.curve_quantification.framework import CurveQuantifications
 from src.curve_quantification.options import get_quantification_funcs
+from src.visualizations.paramap.framework import ParamapVisualizations
+from src.visualizations.options import get_visualization_types
 
 def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> UltrasoundImage:
     """Load the scan data using the specified scan loader.
@@ -157,3 +161,27 @@ def curve_quantification_step(analysis_obj: CurvesAnalysis, function_names: list
     curve_quant.compute_quantifications()
 
     return curve_quant
+
+def visualization_step(quants_obj: CurveQuantifications, vis_type: str, params: list[str], custom_funcs: list[str], **kwargs) -> None:
+    """Perform visualizations using the specified parameters and visualization functions.
+    
+    Args:
+        quants_obj (CurveQuantifications): The quantification object containing the curves.
+        vis_type (str): The type of visualization to perform.
+        params (list[str]): List of parameters to visualize.
+        custom_funcs (list[str]): List of custom visualization functions to apply.
+        **kwargs: Additional keyword arguments for the visualizations.
+    """
+
+    all_visualization_types, all_visualization_funcs = get_visualization_types()
+
+    # Check visualization inputs
+    assert vis_type in all_visualization_types.keys(), f"Visualization type '{vis_type}' not found. Available types: {', '.join(all_visualization_types.keys())}"
+    for func_name in custom_funcs:
+        if func_name not in all_visualization_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")
+
+    vis_obj = ParamapVisualizations(quants_obj, params, custom_funcs, **kwargs)
+    vis_obj.generate_visualizations()
+
+    return vis_obj

@@ -24,11 +24,11 @@ def main_cli() -> int:
     args.scan_loader_kwargs = json.loads(args.scan_loader_kwargs)
     args.seg_loader_kwargs = json.loads(args.seg_loader_kwargs)
     args.analysis_kwargs = json.loads(args.analysis_kwargs)
-    args.curves_loader_kwargs = json.loads(args.curves_loader_kwargs) if args.curves_loader_kwargs else {}
     args.curve_quant_kwargs = json.loads(args.curve_quant_kwargs) if args.curve_quant_kwargs else {}
     args.visualization_kwargs = json.loads(args.visualization_kwargs) if args.visualization_kwargs else {}
 
     if hasattr(args, 'curves_path') and args.curves_path is not None:
+        args.curves_loader_kwargs = json.loads(args.curves_loader_kwargs) if args.curves_loader_kwargs else {}
         return preloaded_pipeline(args)
     
     return core_pipeline(args)    
@@ -43,11 +43,11 @@ def main_yaml() -> int:
     args.scan_loader_kwargs = {} if args.scan_loader_kwargs is None else args.scan_loader_kwargs
     args.seg_loader_kwargs = {} if args.seg_loader_kwargs is None else args.seg_loader_kwargs
     args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs
-    args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
     args.curve_quant_kwargs = {} if args.curve_quant_kwargs is None else args.curve_quant_kwargs
     args.visualization_kwargs = {} if args.visualization_kwargs is None else args.visualization_kwargs
 
     if hasattr(args, 'curves_path') and args.curves_path is not None:
+        args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
         return preloaded_pipeline(args)
     
     return core_pipeline(args)
@@ -178,6 +178,8 @@ def core_pipeline(args) -> int:
 
     # Check visualization inputs
     assert args.visualization_type in all_visualization_types.keys(), f"Visualization type '{args.visualization_type}' not found. Available types: {', '.join(all_visualization_types.keys())}"
+    if args.custom_visualization_funcs is None:
+        args.custom_visualization_funcs = []
     for func_name in args.custom_visualization_funcs:
         if func_name not in all_visualization_funcs.keys():
             raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")

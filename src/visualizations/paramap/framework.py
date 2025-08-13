@@ -7,8 +7,7 @@ import pandas as pd
 
 from ...data_objs.visualizations import ParamapDrawingBase
 from ...curve_quantification.framework import CurveQuantifications
-from ...data_objs.image import UltrasoundImage
-from ...data_objs.seg import CeusSeg
+from ...time_series_analysis.curves_paramap.framework import CurvesParamapAnalysis
 from .functions import *
 
 class_name = "ParamapVisualizations"
@@ -20,9 +19,11 @@ class ParamapVisualizations(ParamapDrawingBase):
 
     def __init__(self, quants_obj: CurveQuantifications, params: List[str], custom_funcs: List[str], **kwargs):
         assert isinstance(quants_obj, CurveQuantifications), "quants_obj must be a CurveQuantifications"
+        assert isinstance(quants_obj.analysis_objs, CurvesParamapAnalysis), "Can only use these visualizations with parametric map analysis"
+        assert isinstance(kwargs.get('paramap_folder_path', None), str), "paramap_folder_path must be specified in kwargs"
         super().__init__()
-        
-        self.paramap_folder_path = kwargs.get('paramap_folder_path', "Visualizations")
+
+        self.paramap_folder_path = kwargs['paramap_folder_path']
         self.hide_all_visualizations = kwargs.get('hide_all_visualizations', False)
         
         self.params = params
@@ -128,7 +129,8 @@ class ParamapVisualizations(ParamapDrawingBase):
         seg = self.quants_obj.analysis_objs.seg_data.seg_mask
         np.save(paramap_folder_path / 'image.npy', im)
         np.save(paramap_folder_path / 'segmentation.npy', seg)
-            
+        np.save(paramap_folder_path / 'pix_dims.npy', self.quants_obj.analysis_objs.image_data.pixdim)
+
         # Save parametric maps
         for numerical_paramap, colored_paramap, param in zip(self.numerical_paramaps, self.colored_paramaps, self.paramap_names):
             self.save_paramap(colored_paramap, paramap_folder_path / f'{param}_colored.npy')

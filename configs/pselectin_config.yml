@@ -5,6 +5,7 @@ scan_loader: nifti
 scan_path: PLACEHOLDER
 scan_loader_kwargs:
   transpose: False
+  resample_spacing: [0.7, 0.37, 0.52]
 
 # Screen 3: Segmentation (either drawing or saved)
 seg_path: PLACEHOLDER
@@ -14,11 +15,16 @@ seg_loader_kwargs:
   assert_phantom: False
 
 # Screen 4: Analysis
-analysis_type: ttc_curves
+analysis_type: curves
 analysis_kwargs:
   curves_output_path: PLACEHOLDER
+  binwidth: 25
+  min_intensity: 0
+  pyradiomics_config_paths:
+    - /home/das/QuantUS_Projs/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate-pselectin.yml
 analysis_funcs:
   - tic
+  - pyradiomics
 
 # Step 5: Curve quantification configuration
 curve_quant_output_path: PLACEHOLDER

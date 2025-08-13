@@ -28,8 +28,9 @@ class CurvesAnalysis:
         self.curves: List[Dict[str, List[float]]] = [{}]  # List to hold computed curves
         self.curve_funcs: Dict[str, callable] = {name: globals()[name] for name in self.curve_groups if name in globals()}
         self.curves_output_path = self.analysis_kwargs.get('curves_output_path', None)
-        self.time_arr = np.arange(self.image_data.pixel_data.shape[3])*self.image_data.frame_rate
-        
+        frame_rate = self.image_data.frame_rate if np.isfinite(self.image_data.frame_rate) else 1.0
+        self.time_arr = np.arange(self.image_data.pixel_data.shape[3]) * frame_rate
+
     def compute_curves(self):
         """Compute UTC parameters for each window in the ROI, creating a parametric map.
         """
@@ -38,7 +39,7 @@ class CurvesAnalysis:
             frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
             self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
 
-        if self.curves_output_path is not None:
+        if self.curves_output_path:
             self.save_curves()
 
     def extract_frame_features(self, frame: np.ndarray, mask: np.ndarray, frame_ix: int):

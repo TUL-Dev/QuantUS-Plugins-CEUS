@@ -2,6 +2,7 @@ from typing import List
 from pathlib import Path
 
 import numpy as np
+import SimpleITK
 
 class UltrasoundImage:
     """
@@ -13,3 +14,4 @@ class UltrasoundImage:
         self.pixdim: List[float] # mm
         self.frame_rate: float # Hz
         self.intensities_for_analysis: np.ndarray # linearized intensity values
+        self.resampled_pixdim: List[float] = None # resampled pixel dimensions if applicable

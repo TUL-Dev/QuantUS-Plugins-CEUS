@@ -1,4 +1,5 @@
 import importlib
+import inspect
 from pathlib import Path
 from typing import Tuple
 
@@ -21,18 +22,12 @@ def get_required_kwargs(analysis_type: str, analysis_funcs: list) -> list:
         list: List of required kwargs for the specified analysis functions.
     """
     
-    all_analysis_funcs = get_analysis_types()[1]
-    
-    # Find all required kwargs
+    all_analysis_types, all_analysis_funcs = get_analysis_types()
+    analysis_objs = [all_analysis_types[analysis_type]] + [all_analysis_funcs[name] for name in analysis_funcs]
     required_kwargs = []
-    for name in analysis_funcs:
-        # Consider dependencies of analysis functions as well
-        for dep in all_analysis_funcs[analysis_type][name].get('deps', []):
-            if dep not in analysis_funcs:
-                analysis_funcs.append(dep)
 
-    for name in analysis_funcs:
-        required_kwargs.extend(all_analysis_funcs[analysis_type][name].get('kwarg_names', []))
+    for obj in analysis_objs:
+        required_kwargs.extend(getattr(obj, 'required_kwargs', []))
     required_kwargs = list(set(required_kwargs))  # Remove duplicates
     
     return required_kwargs
@@ -45,15 +40,14 @@ def get_analysis_types() -> Tuple[dict, dict]:
         dict: Dictionary of analysis functions for each type.
     """
     types = {}
-    analysis_func_handles = {}
     current_dir = Path(__file__).parent
     for folder in current_dir.iterdir():
         # Check if the item is a directory and not a hidden directory
-        if folder.is_dir() and not folder.name.startswith("_"):
+        if folder.is_dir() and not folder.name.startswith("_") and folder.name != "curve_types":
             try:
                 # Attempt to import the module
                 module = importlib.import_module(
-                    f"src.ttc_analysis.{folder.name}.framework"
+                    f"src.time_series_analysis.{folder.name}.framework"
                 )
                 entry_class_name = ''.join(word.capitalize() for word in folder.name.split('_')) + "Analysis"
                 entry_class = getattr(module, entry_class_name, None)
@@ -64,20 +58,12 @@ def get_analysis_types() -> Tuple[dict, dict]:
                 # Handle the case where the module cannot be found
                 pass
             
-    functions = {}
-    for type_name, type_class in types.items():
-        try:
-            module = importlib.import_module(f'src.ttc_analysis.{type_name}.functions')
-            for name, obj in vars(module).items():
-                try:
-                    if type(obj) == dict and callable(obj['func']):
-                        if not isinstance(obj, type):
-                            functions[type_name] = functions.get(type_name, {})
-                            functions[type_name][name] = obj
-                except (TypeError, KeyError):
-                    pass
-        except ModuleNotFoundError:
-            # Handle the case where the functions module cannot be found
-            functions[type_name] = {}
+    module = importlib.import_module(f'src.time_series_analysis.curve_types.functions')
+    module_file = module.__file__
+    defined_funcs = set()
+    for name, obj in inspect.getmembers(module, inspect.isfunction):
+        if not name.startswith("_") and inspect.getsourcefile(obj) == module_file:
+            defined_funcs.add(name)
+    functions = {name: obj for name, obj in inspect.getmembers(module, inspect.isfunction) if name in defined_funcs}
             
     return types, functions

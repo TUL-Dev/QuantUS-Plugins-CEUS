@@ -1,13 +1,17 @@
 import copy
 
+import numpy as np
+
 from src.data_objs import UltrasoundImage, CeusSeg
 from src.image_loading.options import get_scan_loaders
 from src.seg_loading.options import get_seg_loaders
-from src.ttc_analysis.options import get_analysis_types
-from src.ttc_analysis.ttc_curves.framework import TtcCurvesAnalysis
+from src.time_series_analysis.options import get_analysis_types, get_required_kwargs
+from src.time_series_analysis.curves.framework import CurvesAnalysis
 from src.curve_loading.options import get_curves_loaders
 from src.curve_quantification.framework import CurveQuantifications
 from src.curve_quantification.options import get_quantification_funcs
+from src.visualizations.paramap.framework import ParamapVisualizations
+from src.visualizations.options import get_visualization_types
 
 def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> UltrasoundImage:
     """Load the scan data using the specified scan loader.
@@ -64,7 +68,7 @@ def seg_loading_step(seg_type: str, image_data: UltrasoundImage, seg_path: str,
     return seg_loader(image_data, seg_path, scan_path=scan_path, **seg_loader_kwargs)
 
 def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: CeusSeg, 
-                  analysis_funcs: list, **analysis_kwargs) -> TtcCurvesAnalysis:
+                  analysis_funcs: list, **analysis_kwargs) -> CurvesAnalysis:
     """Perform analysis using the specified analysis type.
     
     Args:
@@ -75,7 +79,7 @@ def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: Ceu
         analysis_funcs (list): List of analysis functions to apply.
         **analysis_kwargs: Additional keyword arguments for the analysis.
     Returns:
-        TtcCurvesAnalysis: Analysis object containing the results.
+        CurvesAnalysis: Analysis object containing the results.
     """
     all_analysis_types, all_analysis_funcs = get_analysis_types()
     
@@ -89,9 +93,9 @@ def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: Ceu
     
     # Check analysis setup
     for name in analysis_funcs:   
-        if name not in all_analysis_funcs[analysis_type]:
-            raise ValueError(f"Function '{name}' not found in {analysis_type} analysis type.\nAvailable functions: {', '.join(all_analysis_funcs[analysis_type].keys())}")
-        required_analysis_kwargs = all_analysis_funcs[analysis_type][name].get('kwarg_names', [])
+        if name not in all_analysis_funcs:
+            raise ValueError(f"Function '{name}' not found in {analysis_type} analysis type.\nAvailable functions: {', '.join(all_analysis_funcs.keys())}")
+        required_analysis_kwargs = get_required_kwargs(analysis_type, [name])
         for kwarg in required_analysis_kwargs:
             if kwarg not in analysis_kwargs:
                 raise ValueError(f"analysis_kwargs: Missing required keyword argument '{kwarg}' for function '{name}' in {analysis_type} analysis type.")
@@ -105,7 +109,7 @@ def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: Ceu
     return analysis_obj
 
 def load_curves_step(curves_path: str, curves_loader_type: str,
-                     **kwargs) -> TtcCurvesAnalysis:
+                     **kwargs) -> CurvesAnalysis:
     """Load TTC curves from a specified path.
     
     Args:
@@ -113,7 +117,7 @@ def load_curves_step(curves_path: str, curves_loader_type: str,
         **kwargs: Additional keyword arguments for loading curves.
     
     Returns:
-        TtcCurvesAnalysis: Loaded TTC curves analysis object.
+        CurvesAnalysis: Loaded TTC curves analysis object.
     """
     curves_loaders = get_curves_loaders()
 
@@ -126,13 +130,13 @@ def load_curves_step(curves_path: str, curves_loader_type: str,
 
     return curve_loader(curves_path, **kwargs)
 
-def curve_quantification_step(analysis_obj: TtcCurvesAnalysis, function_names: list[str],
+def curve_quantification_step(analysis_obj: CurvesAnalysis, function_names: list[str],
                           output_path: str, **kwargs) -> CurveQuantifications:
     """
     Perform curve quantifications using the specified analysis objects and function names.
 
     Args:
-        analysis_obj (TtcCurvesAnalysis): The analysis object containing the curves.
+        analysis_obj (CurvesAnalysis): The analysis object containing the curves.
         function_names (List[str]): List of function names to apply for quantification.
         output_path (str): The path to save the output CSV file.
         **kwargs: Additional keyword arguments for the quantification functions.
@@ -157,3 +161,27 @@ def curve_quantification_step(analysis_obj: TtcCurvesAnalysis, function_names: l
     curve_quant.compute_quantifications()
 
     return curve_quant
+
+def visualization_step(quants_obj: CurveQuantifications, vis_type: str, params: list[str], custom_funcs: list[str], **kwargs) -> None:
+    """Perform visualizations using the specified parameters and visualization functions.
+    
+    Args:
+        quants_obj (CurveQuantifications): The quantification object containing the curves.
+        vis_type (str): The type of visualization to perform.
+        params (list[str]): List of parameters to visualize.
+        custom_funcs (list[str]): List of custom visualization functions to apply.
+        **kwargs: Additional keyword arguments for the visualizations.
+    """
+
+    all_visualization_types, all_visualization_funcs = get_visualization_types()
+
+    # Check visualization inputs
+    assert vis_type in all_visualization_types.keys(), f"Visualization type '{vis_type}' not found. Available types: {', '.join(all_visualization_types.keys())}"
+    for func_name in custom_funcs:
+        if func_name not in all_visualization_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")
+
+    vis_obj = ParamapVisualizations(quants_obj, params, custom_funcs, **kwargs)
+    vis_obj.generate_visualizations()
+
+    return vis_obj

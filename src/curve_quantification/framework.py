@@ -4,7 +4,7 @@ from typing import Dict, List
 from pathlib import Path
 from tqdm import tqdm
 
-from ..ttc_analysis.ttc_curves.framework import TtcCurvesAnalysis
+from ..time_series_analysis.curves.framework import CurvesAnalysis
 from .functions import *
 
 class_name = "CurveQuantifications"
@@ -14,16 +14,16 @@ class CurveQuantifications:
     Class to complete RF analysis via the sliding window technique
     and generate a corresponding parametric map.
     """
-    def __init__(self, analysis_objs: TtcCurvesAnalysis, function_names: List[str],
+    def __init__(self, analysis_objs: CurvesAnalysis, function_names: List[str],
                  output_path: str, **kwargs):
         """
         Args:
-            analysis_objs (TtcCurvesAnalysis): The analysis object containing the curves.
+            analysis_objs (CurvesAnalysis): The analysis object containing the curves.
             function_names (List[str]): List of function names to apply for quantification.
             output_path (str): The path to save the output CSV file.
             **kwargs: Additional keyword arguments for the quantification functions.
         """
-        assert isinstance(analysis_objs, TtcCurvesAnalysis), 'analysis_objs must be a TtcCurvesAnalysis'
+        assert isinstance(analysis_objs, CurvesAnalysis), 'analysis_objs must be a CurvesAnalysis'
         assert isinstance(function_names, list), 'function_names must be a list of function names'
         assert isinstance(output_path, str), 'output_path must be a string'
 
@@ -69,14 +69,29 @@ class CurveQuantifications:
         Returns:
             Dict[str, float]: A dictionary containing the computed quantifications.
         """
-        self.data_dict = {}
-        self.data_dict['Scan Name'] = self.analysis_objs.image_data.scan_name
-        self.data_dict['Segmentation Name'] = self.analysis_objs.seg_data.seg_name
+        self.data_dict = [{} for _ in range(len(self.analysis_objs.curves))]
 
-        for func in self.ordered_funcs:
-            func(self.analysis_objs, self.data_dict, self.n_frames_to_analyze, **self.kwargs)
+        for curves, data_dict in zip(self.analysis_objs.curves, self.data_dict):
+            data_dict['Scan Name'] = self.analysis_objs.image_data.scan_name
+            data_dict['Segmentation Name'] = self.analysis_objs.seg_data.seg_name
+            if curves.get('Window-Axial Start Pix'):
+                data_dict['Window-Axial Start Pix'] = curves['Window-Axial Start Pix']
+                data_dict['Window-Sagittal Start Pix'] = curves['Window-Sagittal Start Pix']
+                data_dict['Window-Axial End Pix'] = curves['Window-Axial End Pix']
+                data_dict['Window-Sagittal End Pix'] = curves['Window-Sagittal End Pix']
+                if curves.get('Window-Coronal Start Pix'):
+                    data_dict['Window-Coronal Start Pix'] = curves['Window-Coronal Start Pix']
+                    data_dict['Window-Coronal End Pix'] = curves['Window-Coronal End Pix']
+
+            for func in self.ordered_funcs:
+                func(self.analysis_objs, curves, data_dict, self.n_frames_to_analyze, **self.kwargs)
+
+        # Assert all data_dicts have the same keys
+        key_sets = [set(d.keys()) for d in self.data_dict]
+        first_keys = key_sets[0]
+        assert all(keys == first_keys for keys in key_sets), "Not all data_dicts have the same keys"
 
         if self.output_path:
             assert self.output_path.endswith('.csv'), 'output_path must end with .csv to export to CSV format'
-            df = pd.DataFrame(self.data_dict, index=[0])
-            df.to_csv(self.output_path, index=False)
+            df_all = pd.DataFrame(self.data_dict)
+            df_all.to_csv(self.output_path, index=False)

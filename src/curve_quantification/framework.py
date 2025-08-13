@@ -25,7 +25,7 @@ class CurveQuantifications:
         """
         assert isinstance(analysis_objs, CurvesAnalysis), 'analysis_objs must be a CurvesAnalysis'
         assert isinstance(function_names, list), 'function_names must be a list of function names'
-        assert isinstance(output_path, str), 'output_path must be a string'
+        assert isinstance(output_path, str) or output_path is None, 'output_path must be a string'
 
         self.n_frames_to_analyze = kwargs.get('n_frames_to_analyze', len(analysis_objs.time_arr))
         kwargs.pop('n_frames_to_analyze', None)

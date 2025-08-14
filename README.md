@@ -16,6 +16,9 @@ To install the QuantUS-CEUS framework, follow these steps:
    ```
 2. **Install the package**:
    ```bash
+   pip install --upgrade pip setuptools wheel
+   pip install numpy
+   pip install "napari[all]"
    pip install -e .
    ```
 

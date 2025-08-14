@@ -2,6 +2,10 @@
 
 A contrast enhanced ultrasound (CEUS) analysis framework built on an extensible plugin architecture. 
 
+## Requirements
+
+- Python3.10 or 3.11
+
 ## Installation
 
 To install the QuantUS-CEUS framework, follow these steps:

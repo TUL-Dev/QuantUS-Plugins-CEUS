@@ -17,12 +17,12 @@ seg_loader_kwargs:
 analysis_type: curves_paramap
 analysis_kwargs:
   curves_output_path: 
-  ax_vox_ovrlp: 50
-  sag_vox_ovrlp: 50
-  cor_vox_ovrlp: 50
-  ax_vox_len: 10
-  sag_vox_len: 5
-  cor_vox_len: 5
+  ax_vox_ovrlp: 50  # %
+  sag_vox_ovrlp: 50  # %
+  cor_vox_ovrlp: 50  # %
+  ax_vox_len: 10    # mm
+  sag_vox_len: 5    # mm
+  cor_vox_len: 5    # mm
 analysis_funcs:
   - tic
 
@@ -39,5 +39,5 @@ visualization_type: paramap
 visualization_params: # Empty covers all parameters
 custom_visualization_funcs: # N/A
 visualization_kwargs:
-  paramap_folder_path: demo_paramaps
+  paramap_folder_path: paramaps_LOGNORMAL_DEMO
   hide_all_visualizations: False

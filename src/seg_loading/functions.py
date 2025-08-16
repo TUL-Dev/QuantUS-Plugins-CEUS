@@ -5,11 +5,12 @@ import nibabel as nib
 import SimpleITK as sitk
 from scipy.ndimage import binary_fill_holes
 
+from .decorators import extensions
 from ..data_objs.seg import CeusSeg
 from ..data_objs.image import UltrasoundImage
 from ..image_loading.transforms import resample_to_spacing
 
-
+@extensions(".nii", ".nii.gz")
 def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     """
     Load ROI/VOI data from a NIfTI file. segmentation mask is used as-is.
@@ -33,6 +34,7 @@ def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     
     return out
 
+@extensions(".nii", ".nii.gz")
 def load_bolus_mask(image_data: UltrasoundImage, seg_path: str, **kwargs) -> sitk.Image:
     """
     Load a bolus mask from a given path.

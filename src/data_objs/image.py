@@ -10,6 +10,7 @@ class UltrasoundImage:
     """
     def __init__(self, scan_path: str):
         self.scan_name = Path(scan_path).stem
+        self.scan_path = scan_path
         self.pixel_data: np.ndarray # image data as a numpy array
         self.pixdim: List[float] # mm
         self.frame_rate: float # Hz

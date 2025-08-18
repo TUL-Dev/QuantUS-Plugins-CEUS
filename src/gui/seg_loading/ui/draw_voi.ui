@@ -987,7 +987,7 @@
          <number>10</number>
         </property>
         <property name="bottomMargin">
-         <number>10</number>
+         <number>20</number>
         </property>
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -1444,6 +1444,32 @@ QPushButton:checked {
            </widget>
           </item>
          </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="interp_loading_label">
+          <property name="styleSheet">
+           <string notr="true">QLabel {
+	font-size: 20px;
+	color: green;
+	background-color: rgba(255, 255, 255, 0);
+}</string>
+          </property>
+          <property name="text">
+           <string>Interpolation Loading...</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::AutoText</enum>
+          </property>
+          <property name="scaledContents">
+           <bool>false</bool>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
         </item>
         <item>
          <layout class="QGridLayout" name="gridLayout">

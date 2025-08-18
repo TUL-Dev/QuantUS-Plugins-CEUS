@@ -4,18 +4,93 @@ Segmentation File Selection Widget for Segmentation Loading
 
 from typing import Optional, Tuple, List
 import numpy as np
+import nibabel as nib
 from scipy.ndimage import binary_fill_holes, binary_erosion
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.path import Path
-from PyQt6.QtWidgets import QWidget, QLabel, QHBoxLayout, QSizePolicy
-from PyQt6.QtCore import QEvent, pyqtSignal, Qt
+import scipy.interpolate as interpolate
+from scipy.spatial import ConvexHull
+from PyQt6.QtWidgets import QWidget, QLabel, QHBoxLayout, QSizePolicy, QFileDialog
+from PyQt6.QtCore import QEvent, pyqtSignal, Qt, QThread
 
 from src.gui.mvc.base_view import BaseViewMixin
 from src.gui.seg_loading.ui.draw_voi_ui import Ui_voi_drawer
 from src.data_objs import UltrasoundImage
 from .spline import calculateSpline3D, calculateSpline
+
+def _smooth_3d_mask(mask: np.ndarray) -> np.ndarray:
+    """Apply 3D smoothing to the binary mask."""
+    mask = binary_fill_holes(mask)
+    for i in range(mask.shape[2]):
+        border = np.where(mask[:, :, i] == 1)
+        if (
+            (not len(border[0]))
+            or (max(border[0]) == min(border[0]))
+            or (max(border[1]) == min(border[1]))
+        ):
+            continue
+        border = np.array(border).T
+        hull = ConvexHull(border)
+        vertices = border[hull.vertices]
+        shape = vertices.shape
+        vertices = np.reshape(
+            np.append(vertices, vertices[0]), (shape[0] + 1, shape[1])
+        )
+
+        # Linear interpolation of 2d convex hull
+        tck, _ = interpolate.splprep(vertices.T, s=0.0, k=1)
+        splineX, splineY = np.array(
+            interpolate.splev(np.linspace(0, 1, 1000), tck)
+        )
+
+        mask[:, :, i] = np.zeros((mask.shape[0], mask.shape[1]))
+        for j in range(len(splineX)):
+            mask[int(splineX[j]), int(splineY[j]), i] = 1
+        mask[:, :, i] = binary_fill_holes(mask[:, :, i])
+
+    return mask
+
+class VoiInterpolationWorker(QThread):
+    """Worker thread for time-consuming VOI interpolation operations."""
+    finished = pyqtSignal(np.ndarray)
+    error_msg = pyqtSignal(str)
+
+    def __init__(self, coords: np.ndarray, x_len: int, y_len: int, z_len: int):
+        super().__init__()
+        self.coords = coords
+        self.x_len = x_len; self.y_len = y_len; self.z_len = z_len
+
+    def run(self):
+        """Execute the VOI interpolation in background thread."""
+        try:
+            interp_pts = calculateSpline3D(self.coords)
+
+            # Create the 3D mask from the interpolated surface
+            voi_mask = np.zeros((self.x_len, self.y_len, self.z_len), dtype=bool)
+
+            # For simplicity, we'll mark the voxels the spline passes through.
+            # A more robust solution would involve filling the volume enclosed by the spline surface.
+            interp_points = np.round(np.array(list(interp_pts))).astype(int)
+
+            # Clamp points to be within bounds
+            interp_points[:, 0] = np.clip(interp_points[:, 0], 0, self.x_len - 1)
+            interp_points[:, 1] = np.clip(interp_points[:, 1], 0, self.y_len - 1)
+            interp_points[:, 2] = np.clip(interp_points[:, 2], 0, self.z_len - 1)
+
+            voi_mask[interp_points[:, 0], interp_points[:, 1], interp_points[:, 2]] = True
+            
+            # Fill holes in the resulting mask to create a solid volume
+            voi_mask = _smooth_3d_mask(voi_mask)
+            
+            self.finished.emit(voi_mask)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self.error_msg.emit(f"Error interpolating VOI: {e}")
+
 
 
 class DrawVOIWidget(QWidget, BaseViewMixin):
@@ -71,6 +146,8 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         self._ax_sag_cor_roi_plots = [None, None, None]       # dynamic ROI plots
         self._ax_sag_cor_seg_masks = [None, None, None]       # segmentation masks
         self._ax_sag_cor_point_scatters = [None, None, None]  # dynamic point scatters
+
+        self._voi_interpolation_worker: Optional[VoiInterpolationWorker] = None
 
         # UI & visualization setup sequence
         self._setup_ui()
@@ -183,6 +260,7 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
             self._ui.undo_last_pt_button,
             self._ui.close_roi_button,
             self._ui.undo_last_roi_button,
+            self._ui.construct_voi_label,
         ]
         self._voi_decision_widgets = [
             self._ui.restart_voi_button,
@@ -209,6 +287,7 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         self._ui.scan_name_input.setText(self._image_data.scan_name)
         self._ui.toggle_crosshair_visibility_button.setText('Hide Crosshair')
 
+        self._ui.interp_loading_label.hide()
         self._ui.navigating_label.hide(); self._ui.undo_last_roi_button.hide()
         self._hide_widget_lists([self._voi_decision_widgets, 
                                  self._save_voi_widgets, self._voi_alpha_widgets])
@@ -455,6 +534,11 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         self._ui.close_roi_button.clicked.connect(self._on_roi_close)
         self._ui.undo_last_roi_button.clicked.connect(self._on_undo_last_roi)
         self._ui.interpolate_voi_button.clicked.connect(self._on_interpolate_voi)
+        self._ui.restart_voi_button.clicked.connect(self._on_restart_voi)
+        self._ui.save_voi_button.clicked.connect(self._on_save_voi_pressed)
+        self._ui.choose_save_folder_button.clicked.connect(self._on_choose_folder)
+        self._ui.clear_save_folder_button.clicked.connect(self._ui.save_folder_input.clear)
+        self._ui.back_from_save_button.clicked.connect(self._on_back_from_save)
         self._ui.toggle_crosshair_visibility_button.clicked.connect(self._on_toggle_crosshair_visibility)
         
         self._ui.cur_slice_slider.setMinimum(0)
@@ -606,6 +690,38 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
             'Show Crosshair' if not self._crosshair_visible else 'Hide Crosshair'
         )
 
+    def _on_restart_voi(self):
+        """Handle restarting the VOI creation process."""
+        # Reset the drawing state
+        self._drawn_rois.clear()
+        self._roi_masks_overlap.fill(0)
+        self._plotted_pts.clear()
+        self._current_drawing_plane = None
+        
+        # Update UI
+        self._hide_widget_lists([self._voi_decision_widgets])
+        self._show_widget_lists([self._drawing_widgets])
+        self._ui.undo_last_roi_button.hide()
+        self._refresh_frames()
+
+    def _on_save_voi_pressed(self):
+        """Set up UI for saving VOI"""
+        self._hide_widget_lists([self._voi_decision_widgets])
+        self._show_widget_lists([self._save_voi_widgets])
+        self._refresh_frames()
+
+    def _on_back_from_save(self):
+        """Handle back button click from save VOI."""
+        self._hide_widget_lists([self._save_voi_widgets])
+        self._show_widget_lists([self._voi_decision_widgets])
+        self._refresh_frames()
+
+    def _on_choose_folder(self):
+        """Select folder to save VOI to."""
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder")
+        if folder:
+            self._ui.save_folder_input.setText(folder)
+
     def _refresh_frames(self) -> None:
         """Refresh the displayed frames."""
         for i in range(3):
@@ -664,6 +780,14 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         for widget_list in widgets:
             for widget in widget_list:
                 widget.hide()
+
+    def _show_widget_lists(self, widgets: List[List[QWidget]]) -> None:
+        """
+        Show all relevant widgets in the lists.
+        """
+        for widget_list in widgets:
+            for widget in widget_list:
+                widget.show()
 
     # ======================= Lifecycle / Cleanup ==============================
     def _cleanup_animations(self):
@@ -732,8 +856,8 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
 
     def _on_interpolate_voi(self):
         """Handle VOI interpolation from the drawn 2D ROIs."""
-        if len(self._drawn_rois) < 2:
-            self.show_error("Interpolation Error", "At least 2 ROIs on different planes are required for 3D interpolation.")
+        if len(self._drawn_rois) == 2 or not len(self._drawn_rois):
+            print("At least 3 ROIs on different planes or 1 ROI is required for 3D interpolation.")
             return
 
         # Combine all points from all drawn ROIs
@@ -751,29 +875,83 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
 
         # Perform 3D spline interpolation
         x_coords, y_coords, z_coords = zip(*unique_points)
-        interp_pts = calculateSpline3D(np.transpose([x_coords, y_coords, z_coords]))
-
-        # Create the 3D mask from the interpolated surface
-        voi_mask = np.zeros((self._x_len, self._y_len, self._z_len), dtype=bool)
+        coords = np.transpose([x_coords, y_coords, z_coords])
         
-        # For simplicity, we'll mark the voxels the spline passes through.
-        # A more robust solution would involve filling the volume enclosed by the spline surface.
-        interp_points = np.round(np.array(list(interp_pts))).astype(int)
+        if len(self._drawn_rois) > 2:
+            # Stop any existing worker
+            if self._voi_interpolation_worker and self._voi_interpolation_worker.isRunning():
+                self._voi_interpolation_worker.quit()
+                self._voi_interpolation_worker.wait()
 
-        # Clamp points to be within bounds
-        interp_points[:, 0] = np.clip(interp_points[:, 0], 0, self._x_len - 1)
-        interp_points[:, 1] = np.clip(interp_points[:, 1], 0, self._y_len - 1)
-        interp_points[:, 2] = np.clip(interp_points[:, 2], 0, self._z_len - 1)
+            # Create and start worker
+            self._voi_interpolation_worker = VoiInterpolationWorker(
+                coords, self._x_len, self._y_len, self._z_len
+            )
 
-        voi_mask[interp_points[:, 0], interp_points[:, 1], interp_points[:, 2]] = True
+            # Connect worker signals
+            self._voi_interpolation_worker.finished.connect(self._on_interpolation_finished)
+            self._voi_interpolation_worker.error_msg.connect(self.show_error)
+
+            # Start interpolatoin loading
+            self._set_interp_loading(True)
+            self._voi_interpolation_worker.start()
+        else:
+            voi_mask = np.zeros((self._x_len, self._y_len, self._z_len), dtype=bool)
+
+            # For simplicity, we'll mark the voxels the spline passes through.
+            # A more robust solution would involve filling the volume enclosed by the spline surface.
+            interp_points = np.round(np.array(list(coords))).astype(int)
+
+            # Clamp points to be within bounds
+            interp_points[:, 0] = np.clip(interp_points[:, 0], 0, self._x_len - 1)
+            interp_points[:, 1] = np.clip(interp_points[:, 1], 0, self._y_len - 1)
+            interp_points[:, 2] = np.clip(interp_points[:, 2], 0, self._z_len - 1)
+
+            voi_mask[interp_points[:, 0], interp_points[:, 1], interp_points[:, 2]] = True
+            
+            # Fill holes in the resulting mask to create a solid volume
+            voi_mask = _smooth_3d_mask(voi_mask)
+            self._hide_widget_lists([self._drawing_widgets])
+            self._on_interpolation_finished(voi_mask)
+
+    def _save_voi(self):
+        """Save the current VOI mask to a file."""
+        if not Path(self._ui.save_folder_input.text()).is_dir():
+            print("Invalid Folder", "Please select a valid folder to save the VOI.")
+            return
         
-        # Fill holes in the resulting mask to create a solid volume
-        voi_mask = binary_fill_holes(voi_mask)
+        out_name = self._ui.save_name_input.text()
+        if not out_name:
+            print("Invalid Name", "Please enter a valid name for the VOI.")
+            return
+        out_name = out_name + '.nii.gz' if not out_name.endswith('.nii.gz') else out_name
 
+        out_path = Path(self._ui.save_folder_input.text()) / out_name
+
+        affine = np.eye(4)
+        for i, res in enumerate(self._image_data.pixdim[:3]):
+            affine[i, i] = res
+        voi_mask = np.array(self._roi_masks_overlap[:, :, :, 0] / 255.0).astype(np.uint8)
+        niiarray = nib.Nifti1Image(voi_mask, affine)
+        niiarray.header["descrip"] = self._image_data.scan_name
+        nib.save(niiarray, out_path)
+
+    def _set_interp_loading(self, loading_state: bool) -> None:
+        """Set the interpolation loading state."""
+        if loading_state:
+            self._hide_widget_lists([self._drawing_widgets])
+            self._ui.interp_loading_label.show()
+            self._ui.back_button.setEnabled(False)
+        else:
+            self._ui.interp_loading_label.hide()
+            self._show_widget_lists([self._voi_decision_widgets])
+            self._ui.back_button.setEnabled(True)
+
+    def _on_interpolation_finished(self, voi_mask: np.ndarray):
         # Update the master overlap mask with the new 3D VOI
         self._roi_masks_overlap.fill(0)
         self._roi_masks_overlap[voi_mask, 0] = 255  # Red
         self._roi_masks_overlap[voi_mask, 3] = 128  # Alpha
         
+        self._set_interp_loading(False)
         self._refresh_frames()
-        print("Interpolation Complete", "3D VOI has been generated from the drawn ROIs.")

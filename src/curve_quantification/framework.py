@@ -26,9 +26,7 @@ class CurveQuantifications:
         assert isinstance(analysis_objs, CurvesAnalysis), 'analysis_objs must be a CurvesAnalysis'
         assert isinstance(function_names, list), 'function_names must be a list of function names'
         assert isinstance(output_path, str) or output_path is None, 'output_path must be a string'
-
-        self.n_frames_to_analyze = kwargs.get('n_frames_to_analyze', len(analysis_objs.time_arr))
-        kwargs.pop('n_frames_to_analyze', None)
+        
         self.analysis_objs = analysis_objs
         self.function_names = function_names
         self.output_path = output_path
@@ -84,7 +82,7 @@ class CurveQuantifications:
                     data_dict['Window-Coronal End Pix'] = curves['Window-Coronal End Pix']
 
             for func in self.ordered_funcs:
-                func(self.analysis_objs, curves, data_dict, self.n_frames_to_analyze, **self.kwargs)
+                func(self.analysis_objs, curves, data_dict, **self.kwargs)
 
         # Assert all data_dicts have the same keys
         key_sets = [set(d.keys()) for d in self.data_dict]

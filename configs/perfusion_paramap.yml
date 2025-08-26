@@ -2,12 +2,12 @@
 scan_loader: nifti
 
 # Screen 2: Scan inputs
-scan_path: /media/das/TOSHIBA EXT/ChinaData/3D-001_3rd/CEUS-25082 3rd.nii.gz
+scan_path: /Volumes/TOSHIBA EXT/ChinaData/3D-001_3rd/CEUS-25082 3rd.nii.gz
 scan_loader_kwargs:
   transpose: False
 
 # Screen 3: Segmentation (either drawing or saved)
-seg_path: /media/das/TOSHIBA EXT/ChinaData/3D-001_3rd/nifti_segmentation_QUANTUS/CEUS-25082_3rd_segmentation.nii.gz
+seg_path: /Volumes/TOSHIBA EXT/ChinaData/3D-001_3rd/nifti_segmentation_QUANTUS/CEUS-25082_3rd_segmentation.nii.gz
 seg_loader: nifti_voi
 seg_loader_kwargs:
   assert_scan: False
@@ -29,8 +29,11 @@ analysis_funcs:
 # Step 5: Curve quantification
 curve_quant_output_path: 
 curve_quant_funcs:
-  - lognormal_fit
+  - lognormal_fit_select
+  - lognormal_fit_full
 curve_quant_kwargs:
+  start_frame: 10
+  end_frame: 50
   curves_to_fit:
     - TIC
 

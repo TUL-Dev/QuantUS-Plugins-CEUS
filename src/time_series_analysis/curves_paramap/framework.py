@@ -45,7 +45,7 @@ class CurvesParamapAnalysis(CurvesAnalysis):
 
     def generate_windows(self):
         """Generate sliding windows for the parametric map.
-        
+
         Returns:
             List[tuple]: List of tuples containing window coordinates.
         """
@@ -67,14 +67,27 @@ class CurvesParamapAnalysis(CurvesAnalysis):
 
         for ax_start in range(min_ax, max_ax, ax_step):
             for sag_start in range(min_sag, max_sag, sag_step):
-                if hasattr(self, 'cor_vox_len'):
-                    for cor_start in range(min_cor, max_cor, cor_step):
-                        windows.append((ax_start, sag_start, cor_start, 
-                                        ax_start + ax_step, sag_start + sag_step, cor_start + cor_step))
-                else:
-                    windows.append((ax_start, sag_start, 
-                                    ax_start + ax_step, sag_start + sag_step))
-        
+                for cor_start in range(min_cor, max_cor, cor_step):
+                        if hasattr(self, 'cor_vox_len'):
+                            # Determine if window is inside analysis volume
+                            mask_vals = self.seg_data.seg_mask[
+                                sag_start : (sag_start + sag_step),
+                                cor_start : (cor_start + cor_step),
+                                ax_start : (ax_start + ax_step),
+                            ]
+                            
+                            # Define Percentage Threshold
+                            total_number_of_elements_in_region = mask_vals.size
+                            number_of_ones_in_region = len(np.where(mask_vals == True)[0])
+                            percentage_ones = number_of_ones_in_region / total_number_of_elements_in_region
+
+                            if percentage_ones > 0.2:
+                                windows.append((ax_start, sag_start, cor_start, 
+                                                ax_start + ax_step, sag_start + sag_step, cor_start + cor_step))
+                        else:
+                            windows.append((ax_start, sag_start, 
+                                            ax_start + ax_step, sag_start + sag_step))
+
         return windows
         
     def compute_curves(self):

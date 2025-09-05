@@ -29,7 +29,7 @@ class CurvesAnalysis:
         self.curve_funcs: Dict[str, callable] = {name: globals()[name] for name in self.curve_groups if name in globals()}
         self.curves_output_path = self.analysis_kwargs.get('curves_output_path', None)
         frame_rate = self.image_data.frame_rate if np.isfinite(self.image_data.frame_rate) else 1.0
-        self.time_arr = np.arange(self.image_data.pixel_data.shape[3]) * frame_rate
+        self.time_arr = np.arange(self.image_data.pixel_data.shape[3]) / frame_rate
 
     def compute_curves(self):
         """Compute UTC parameters for each window in the ROI, creating a parametric map.

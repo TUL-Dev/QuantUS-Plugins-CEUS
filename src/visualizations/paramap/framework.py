@@ -71,7 +71,10 @@ class ParamapVisualizations(ParamapDrawingBase):
             num = getattr(row, param)
             if not np.isfinite(num):
                 continue
-            color_ix = int((255 / (max_val - min_val)) * (num - min_val)) if min_val != max_val else 125
+            try:
+                color_ix = int((255 / (max_val - min_val)) * (num - min_val)) if min_val != max_val else 125
+            except ValueError:
+                continue
             if hasattr(self.quants_obj.analysis_objs, 'cor_vox_len'):
                 numerical_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1] = num
                 colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)

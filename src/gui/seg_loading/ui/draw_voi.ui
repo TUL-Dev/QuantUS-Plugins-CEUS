@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1512</width>
-    <height>1793</height>
+    <height>832</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -28,7 +28,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>10</y>
+     <y>-250</y>
      <width>1351</width>
      <height>951</height>
     </rect>
@@ -1456,6 +1456,32 @@ QPushButton:checked {
           </property>
           <property name="text">
            <string>Interpolation Loading...</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::AutoText</enum>
+          </property>
+          <property name="scaledContents">
+           <bool>false</bool>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+          <property name="wordWrap">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="saving_voi_label">
+          <property name="styleSheet">
+           <string notr="true">QLabel {
+	font-size: 20px;
+	color: green;
+	background-color: rgba(255, 255, 255, 0);
+}</string>
+          </property>
+          <property name="text">
+           <string>Saving VOI...</string>
           </property>
           <property name="textFormat">
            <enum>Qt::AutoText</enum>

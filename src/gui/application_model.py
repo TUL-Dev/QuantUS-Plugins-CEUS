@@ -185,8 +185,8 @@ class ApplicationModel(BaseModel):
             return []
         
         try:
-            loader = self._scan_loaders[self._selected_scan_type]
-            return loader.get('file_exts', [])
+            loader = self._scan_loaders[self._selected_scan_type]['cls']
+            return getattr(loader, 'extensions', [])
         except Exception as e:
             self._emit_error(f"Error getting file extensions: {e}")
             return []
@@ -202,8 +202,8 @@ class ApplicationModel(BaseModel):
             return []
         
         try:
-            loader = self._scan_loaders[self._selected_scan_type]
-            return loader.get('required_kwargs', [])
+            loader = self._scan_loaders[self._selected_scan_type]['cls']
+            return getattr(loader, 'required_kwargs', [])
         except Exception as e:
             self._emit_error(f"Error getting required kwargs: {e}")
             return []
@@ -371,7 +371,7 @@ class ApplicationModel(BaseModel):
             return []
         
         try:
-            loader = self._seg_loaders[self._selected_seg_type]
+            loader = self._seg_loaders[self._selected_seg_type]['cls']
             return getattr(loader, 'supported_extensions', [])
         except Exception as e:
             self._emit_error(f"Error getting seg file extensions: {e}")

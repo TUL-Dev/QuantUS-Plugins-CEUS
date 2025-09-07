@@ -2,14 +2,15 @@
 Segmentation File Selection Widget for Segmentation Loading
 """
 
+from pathlib import Path
 from typing import Optional, Tuple, List
 import numpy as np
 import nibabel as nib
 from scipy.ndimage import binary_fill_holes, binary_erosion
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.path import Path
+from matplotlib.backends.backend_qtagg import FigureCanvas
+from matplotlib.path import Path as Mpl_Path
 import scipy.interpolate as interpolate
 from scipy.spatial import ConvexHull
 from PyQt6.QtWidgets import QWidget, QLabel, QHBoxLayout, QSizePolicy, QFileDialog
@@ -91,6 +92,21 @@ class VoiInterpolationWorker(QThread):
             traceback.print_exc()
             self.error_msg.emit(f"Error interpolating VOI: {e}")
 
+class SaveVoiWorker(QThread):
+    """Worker thread for saving VOI mask to file in the background."""
+    finished = pyqtSignal(str)
+    error_msg = pyqtSignal(str)
+
+    def __init__(self, parent_widget):
+        super().__init__()
+        self.parent_widget = parent_widget
+
+    def run(self):
+        try:
+            self.parent_widget._save_voi()
+            self.finished.emit("VOI saved successfully.")
+        except Exception as e:
+            self.error_msg.emit(str(e))
 
 
 class DrawVOIWidget(QWidget, BaseViewMixin):
@@ -287,7 +303,7 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         self._ui.scan_name_input.setText(self._image_data.scan_name)
         self._ui.toggle_crosshair_visibility_button.setText('Hide Crosshair')
 
-        self._ui.interp_loading_label.hide()
+        self._ui.interp_loading_label.hide(); self._ui.saving_voi_label.hide()
         self._ui.navigating_label.hide(); self._ui.undo_last_roi_button.hide()
         self._hide_widget_lists([self._voi_decision_widgets, 
                                  self._save_voi_widgets, self._voi_alpha_widgets])
@@ -295,18 +311,18 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
     def _setup_matplotlib_canvases(self):
         """Setup matplotlib canvases for high-performance plane display."""
         for i in range(3):
-            fig = plt.figure(figsize=(3, 3))
+            fig = plt.figure()
             fig.patch.set_facecolor((0, 0, 0, 0))
+            fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
             canvas = FigureCanvas(fig)
             canvas.figure.patch.set_facecolor((0, 0, 0, 0))
-            canvas.draw()
+            canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self._ax_sag_cor_matplotlib_canvases[i] = canvas
             layout = QHBoxLayout(self._ax_sag_cor_planes[i])
             layout.setContentsMargins(0, 0, 0, 0)
             layout.addWidget(canvas, stretch=1)
             self._ax_sag_cor_planes[i].setLayout(layout)
             # Make canvas expand to fill its QLabel container
-            canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             # Install event filter on parent label for resize handling
             self._ax_sag_cor_planes[i].installEventFilter(self)
         # Initial sizing pass
@@ -347,7 +363,7 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
                 self._ax_sag_cor_point_scatters[plane_ix] = point_scatter
                 self._ax_sag_cor_roi_plots[plane_ix] = roi_plot
                 self._ax_sag_cor_seg_masks[plane_ix] = seg_mask
-                
+
                 canvas.draw()
                 self._update_crosshair_lines(plane_ix)  # position correctly
             except Exception as e:
@@ -535,11 +551,12 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         self._ui.undo_last_roi_button.clicked.connect(self._on_undo_last_roi)
         self._ui.interpolate_voi_button.clicked.connect(self._on_interpolate_voi)
         self._ui.restart_voi_button.clicked.connect(self._on_restart_voi)
-        self._ui.save_voi_button.clicked.connect(self._on_save_voi_pressed)
+        self._ui.export_voi_button.clicked.connect(self._on_export_voi_clicked)
         self._ui.choose_save_folder_button.clicked.connect(self._on_choose_folder)
         self._ui.clear_save_folder_button.clicked.connect(self._ui.save_folder_input.clear)
         self._ui.back_from_save_button.clicked.connect(self._on_back_from_save)
         self._ui.toggle_crosshair_visibility_button.clicked.connect(self._on_toggle_crosshair_visibility)
+        self._ui.save_voi_button.clicked.connect(self._on_save_voi_clicked)
         
         self._ui.cur_slice_slider.setMinimum(0)
         self._ui.cur_slice_slider.setMaximum(max(0, self._num_slices - 1))
@@ -614,7 +631,7 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         grid_points = np.vstack([x_grid.ravel(), y_grid.ravel()]).T
 
         # Create a 2D mask from the path of the interpolated spline
-        path = Path(plane_points_2d)
+        path = Mpl_Path(plane_points_2d)
         mask_2d = path.contains_points(grid_points).reshape(plane_dim_y_len, plane_dim_x_len)
 
         # Create a 4D RGBA mask for this single ROI
@@ -704,11 +721,30 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         self._ui.undo_last_roi_button.hide()
         self._refresh_frames()
 
-    def _on_save_voi_pressed(self):
-        """Set up UI for saving VOI"""
+    def _on_save_voi_clicked(self):
         self._hide_widget_lists([self._voi_decision_widgets])
-        self._show_widget_lists([self._save_voi_widgets])
+        self._show_widget_lists([self._save_voi_widgets, self._voi_alpha_widgets])
         self._refresh_frames()
+
+    def _on_export_voi_clicked(self):
+        # Show saving label, hide save widgets
+        self._ui.saving_voi_label.show()
+        self._hide_widget_lists([self._save_voi_widgets])
+        
+        self._save_worker = SaveVoiWorker(self)
+        self._save_worker.finished.connect(self._on_save_voi_finished)
+        self._save_worker.error_msg.connect(self._on_save_voi_error)
+        self._save_worker.start()
+
+    def _on_save_voi_finished(self, msg):
+        self._ui.saving_voi_label.hide()
+        self._show_widget_lists([self._save_voi_widgets])
+        print(msg)
+
+    def _on_save_voi_error(self, err):
+        self._ui.saving_voi_label.hide()
+        self._show_widget_lists([self._save_voi_widgets])
+        self.show_error(f"Error saving VOI: {err}")
 
     def _on_back_from_save(self):
         """Handle back button click from save VOI."""
@@ -763,10 +799,6 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
             self._on_undo_last_roi()
             return
         super().keyPressEvent(event)
-
-    # def _on_choose_seg_path(self) -> None:
-    #     """Handle segmentation file selection."""
-    #     self._select_file_helper(self._ui.seg_path_input, self._file_extensions)
         
     def _on_back_clicked(self) -> None:
         """Handle back button click."""
@@ -822,7 +854,6 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         return super().eventFilter(obj, event)
 
     def _resize_canvas_for(self, label_widget: QLabel):
-        """Resize associated canvas' figure to fill the QLabel bounds."""
         try:
             idx = self._ax_sag_cor_planes.index(label_widget)
         except ValueError:
@@ -830,12 +861,7 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
         canvas = self._ax_sag_cor_matplotlib_canvases[idx]
         if not canvas:
             return
-        w = label_widget.width()
-        h = label_widget.height()
-        if w <= 0 or h <= 0:
-            return
-        dpi = canvas.figure.dpi
-        canvas.figure.set_size_inches(w / dpi, h / dpi, forward=True)
+
         canvas.figure.tight_layout(pad=0)
         canvas.draw_idle()
 

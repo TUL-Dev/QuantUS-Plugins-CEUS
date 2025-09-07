@@ -46,6 +46,7 @@ class SegLoadingViewCoordinator(QStackedWidget):
         # Widget instances
         self._seg_type_widget: Optional[SegTypeSelectionWidget] = None
         self._seg_file_widget: Optional[SegFileSelectionWidget] = None
+        self._voi_drawing_widget: Optional[DrawVOIWidget] = None
         
         # Current state
         self._selected_seg_type: Optional[str] = None
@@ -107,7 +108,6 @@ class SegLoadingViewCoordinator(QStackedWidget):
         widgets_to_remove = [
             self._seg_file_widget, 
             self._voi_drawing_widget,
-            self._seg_type_widget,
         ]
         
         for widget in widgets_to_remove:

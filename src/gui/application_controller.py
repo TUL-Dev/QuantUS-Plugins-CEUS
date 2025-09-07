@@ -3,6 +3,7 @@ Main Application Controller for QuantUS GUI MVC architecture
 """
 
 import sys
+import qdarktheme
 from typing import Optional
 from PyQt6.QtWidgets import QApplication, QStackedWidget
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -29,6 +30,9 @@ class ApplicationController(QObject):
         super().__init__()
         self._app = app
         self._widget_stack = QStackedWidget()
+        self._widget_stack.setStyleSheet("QWidget {\n"
+        "    background: rgb(42, 42, 42);\n"
+        "}")
         
         # Unified application model
         self._model = ApplicationModel()
@@ -214,7 +218,9 @@ def create_application():
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
-    
+
+    qdarktheme.setup_theme()
+
     # Create and configure application controller
     app_controller = ApplicationController(app)
     

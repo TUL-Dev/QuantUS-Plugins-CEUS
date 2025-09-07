@@ -2,12 +2,13 @@
 scan_loader: nifti
 
 # Screen 2: Scan inputs
-scan_path: /Volumes/TOSHIBA EXT/ChinaData/3D-001_3rd/CEUS-25082 3rd.nii.gz
+scan_path: /Volumes/TOSHIBA EXT/P-Selectin Data/Feb 2019 Mice Batch 2/MouseBatch2D01_02162019/MouseC2M3_d001_02162019/20190216160924.918.nii.gz
 scan_loader_kwargs:
   transpose: False
+  resample_spacing: [0.372, 0.372, 0.372]  # mm
 
 # Screen 3: Segmentation (either drawing or saved)
-seg_path: /Volumes/TOSHIBA EXT/ChinaData/3D-001_3rd/nifti_segmentation_QUANTUS/CEUS-25082_3rd_segmentation.nii.gz
+seg_path: /Volumes/TOSHIBA EXT/P-Selectin Data/Feb VOIs (David)/20190216160924.918_segmentation_LEFT.nii.gz
 seg_loader: nifti_voi
 seg_loader_kwargs:
   assert_scan: False
@@ -20,9 +21,9 @@ analysis_kwargs:
   ax_vox_ovrlp: 50  # %
   sag_vox_ovrlp: 50  # %
   cor_vox_ovrlp: 50  # %
-  ax_vox_len: 10    # mm
-  sag_vox_len: 5    # mm
-  cor_vox_len: 5    # mm
+  ax_vox_len: 3    # mm
+  sag_vox_len: 3    # mm
+  cor_vox_len: 3    # mm
 analysis_funcs:
   - tic
 
@@ -30,10 +31,9 @@ analysis_funcs:
 curve_quant_output_path: 
 curve_quant_funcs:
   - lognormal_fit_select
-  - lognormal_fit_full
 curve_quant_kwargs:
-  start_frame: 10
-  end_frame: 50
+  start_time: 0 # sec
+  end_time: 60  # sec
   curves_to_fit:
     - TIC
 
@@ -41,6 +41,9 @@ curve_quant_kwargs:
 visualization_type: paramap
 visualization_params: # Empty covers all parameters
 custom_visualization_funcs: # N/A
+  - plot_tics
 visualization_kwargs:
-  paramap_folder_path: paramaps_LOGNORMAL_DEMO
+  paramap_folder_path: paramaps_LOGNORMAL_DEMO_L_3
   hide_all_visualizations: False
+  start_time: 0  # in seconds
+  end_time: 300  # in seconds

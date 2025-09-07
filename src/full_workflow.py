@@ -181,7 +181,7 @@ def core_pipeline(args) -> int:
     if args.custom_visualization_funcs is None:
         args.custom_visualization_funcs = []
     for func_name in args.custom_visualization_funcs:
-        if func_name not in all_visualization_funcs.keys():
+        if func_name not in all_visualization_funcs[args.visualization_type].keys():
             raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")
 
     # Parsing / data loading

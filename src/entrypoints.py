@@ -178,7 +178,7 @@ def visualization_step(quants_obj: CurveQuantifications, vis_type: str, params: 
     # Check visualization inputs
     assert vis_type in all_visualization_types.keys(), f"Visualization type '{vis_type}' not found. Available types: {', '.join(all_visualization_types.keys())}"
     for func_name in custom_funcs:
-        if func_name not in all_visualization_funcs.keys():
+        if func_name not in all_visualization_funcs[vis_type].keys():
             raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")
 
     vis_obj = ParamapVisualizations(quants_obj, params, custom_funcs, **kwargs)

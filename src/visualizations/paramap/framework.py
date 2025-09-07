@@ -117,7 +117,7 @@ class ParamapVisualizations(ParamapDrawingBase):
         # Complete all custom visualizations
         for func_name in self.custom_funcs:
             function = globals()[func_name]
-            function(self.quants_obj, self.paramap_folder_path, **self.kwargs)
+            function(self.quants_obj, **self.kwargs)
 
         if not self.hide_all_visualizations:
             self.export_visualizations()

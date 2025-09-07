@@ -46,9 +46,8 @@ def get_visualization_types() -> Tuple[dict, dict]:
             for name, obj in vars(module).items():
                 try:
                     if callable(obj) and obj.__module__ == f'src.visualizations.{type_name}.functions':
-                        if not isinstance(obj, type):
-                            functions[type_name] = functions.get(type_name, {})
-                            functions[type_name][name] = obj
+                        functions[type_name] = functions.get(type_name, {})
+                        functions[type_name][name] = obj
                 except (TypeError, KeyError):
                     pass
         except ModuleNotFoundError as e:

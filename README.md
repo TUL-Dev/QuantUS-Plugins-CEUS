@@ -4,7 +4,7 @@ A contrast enhanced ultrasound (CEUS) analysis framework built on an extensible 
 
 ## Requirements
 
-- Python3.10 or 3.11
+- Python3.10
 
 ## Installation
 
@@ -32,3 +32,4 @@ quantceus
 This will execute the main YAML configuration file, which defines the workflow for CEUS analysis. Example configurations can be found in the `configs` directory.
 
 Additionally, you can run through the supported analysis pipelines step by step using the example notebookes located in the `CLI-Demos` directory. 
+

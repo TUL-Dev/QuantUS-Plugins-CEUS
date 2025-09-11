@@ -5,7 +5,7 @@ scan_loader: nifti
 scan_path: /Volumes/TOSHIBA EXT/P-Selectin Data/Feb 2019 Mice Batch 2/MouseBatch2D01_02162019/MouseC2M3_d001_02162019/20190216160924.918.nii.gz
 scan_loader_kwargs:
   transpose: False
-  resample_spacing: [0.372, 0.372, 0.372]  # mm
+  resample_spacing: [0.70, 0.70, 0.70]  # mm
 
 # Screen 3: Segmentation (either drawing or saved)
 seg_path: /Volumes/TOSHIBA EXT/P-Selectin Data/Feb VOIs (David)/20190216160924.918_segmentation_LEFT.nii.gz
@@ -30,9 +30,10 @@ analysis_funcs:
 # Step 5: Curve quantification
 curve_quant_output_path: 
 curve_quant_funcs:
-  - dte
+  - lognormal_fit_select
 curve_quant_kwargs:
-  tic_name: TIC
+  curves_to_fit:
+    - TIC
 
 # Step 6: Visualization
 visualization_type: paramap

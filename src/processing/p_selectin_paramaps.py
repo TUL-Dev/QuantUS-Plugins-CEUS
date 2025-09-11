@@ -369,10 +369,10 @@ def analyze_segmented_data(scan_path: str, mask_path: str, pipeline_config: Dict
 
     assert roi_name in mask_path, f"Mask path {mask_path} does not contain expected ROI name {roi_name}"
     pipeline_config['visualization_kwargs']['paramap_folder_path'] = str(output_dir)
-    # pipeline_config['curve_quant_kwargs']['start_time'] = start_time
-    # pipeline_config['curve_quant_kwargs']['end_time'] = end_time
-    # pipeline_config['visualization_kwargs']['start_time'] = start_time
-    # pipeline_config['visualization_kwargs']['end_time'] = end_time
+    pipeline_config['curve_quant_kwargs']['start_time'] = start_time
+    pipeline_config['curve_quant_kwargs']['end_time'] = end_time
+    pipeline_config['visualization_kwargs']['start_time'] = start_time
+    pipeline_config['visualization_kwargs']['end_time'] = end_time
 
     return main_dict(pipeline_config)
 
@@ -408,21 +408,16 @@ def analyze_pselectin_data(feb1_root_path: str, feb2_root_path: str, july_root_p
     }
     
     # Skipped scans for all maps
-    skipped_scanname = ['20190218130746.412.nii.gz', '20190218133005.424.nii.gz', 
-                        '20190727100541.611.nii.gz', ]
-    
+    skipped_scanname = ['20190218130746.412', '20190218133005.424', 
+                        '20190727100541.611', '20190215152929.369', '20190213120637.539']
+
     # Skipped scans not useful for perfusion maps
-    skipped_scanname += ['20190725123015.493.nii.gz', '20190727105949.073.nii.gz',
-                         '20190726103330.200.nii.gz']
+    # skipped_scanname += ['20190725123015.493', '20190727105949.073',
+    #                      '20190726103330.200', '20190730112656.658',]
     
     # Skipped scans not useful for dTE maps
-    skipped_scanname += ['20190725125851.660.nii.gz', ]
-    # transducer movement, water movement (not terrible but movement right at wash-in), 
-    # skipped_scanname = ['20190218130746.412', '20190213120637.539',
-    #                     '20190215152929.369'] # spinning issue
-    # skipped_scanname += ['20190727100541.611'] # washout only. Flash appears to occur after all contrast is gone
-    # skipped_scanname += ['20190218133005.424'] # very poor quality
-    
+    skipped_scanname += ['20190725125851.660']
+
     scan_seg_pairs = []
     for feb_seg_file in Path(feb_voi_dir).glob('201902*.nii.gz'):
         scan_name = feb_seg_file.name[:18]
@@ -480,6 +475,8 @@ def analyze_pselectin_data(feb1_root_path: str, feb2_root_path: str, july_root_p
             mouse_name = f"July M{mouse}"
         else:
             raise ValueError(f"Scan file not found for {july_seg_file.name} in July dataset")
+        start_time = PATH_MATCHES.get(mouse_name, {}).get(f'Day {day}', {})['start_time']
+        end_time = PATH_MATCHES.get(mouse_name, {}).get(f'Day {day}', {})['end_time']
         scan_seg_pairs.append((scan_file, july_seg_file, mouse_name, batch, day))
 
     for scan_file, july_seg_file, mouse_name, batch, day in tqdm(scan_seg_pairs, desc="Analyzing July data"):
@@ -490,7 +487,9 @@ def analyze_pselectin_data(feb1_root_path: str, feb2_root_path: str, july_root_p
             results_dir=results_dir,
             mouse_name=mouse_name,
             batch=batch,
-            day=day
+            day=day,
+            start_time=start_time,
+            end_time=end_time
         ):
             return exit_code
 

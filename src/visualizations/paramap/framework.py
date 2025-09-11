@@ -50,8 +50,7 @@ class ParamapVisualizations(ParamapDrawingBase):
         """
         assert param in self.results_df.columns, f"Parameter '{param}' not found in quantified results"
     
-        numerical_paramap = np.full(self.quants_obj.analysis_objs.seg_data.seg_mask.shape, dtype=np.float32, fill_value=np.nan)
-        colored_paramap = np.zeros(list(self.quants_obj.analysis_objs.seg_data.seg_mask.shape) + [4], dtype=np.uint8)
+        numerical_paramap = np.full(self.quants_obj.analysis_objs.seg_data.seg_mask.shape, fill_value=None, dtype=object)
         param_vals = self.results_df[param].values
 
         min_val = min(param_vals); max_val = max(param_vals)
@@ -71,19 +70,48 @@ class ParamapVisualizations(ParamapDrawingBase):
             num = getattr(row, param)
             if not np.isfinite(num):
                 continue
-            try:
-                color_ix = int((255 / (max_val - min_val)) * (num - min_val)) if min_val != max_val else 125
-            except ValueError:
-                continue
+
+            def update_voxels(sag_start, sag_end, ax_start, ax_end, cor_start=None, cor_end=None):
+                if cor_start is None or cor_end is None:
+                    raise NotImplementedError("2D paramap drawing not implemented")
+                
+                for s in range(sag_start, sag_end+1):
+                    for c in range(cor_start, cor_end+1):
+                        for a in range(ax_start, ax_end+1):
+                            if numerical_paramap[s, c, a] is None:
+                                numerical_paramap[s, c, a] = [num]
+                            else:
+                                numerical_paramap[s, c, a].append(num)
+            
             if hasattr(self.quants_obj.analysis_objs, 'cor_vox_len'):
-                numerical_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1] = num
-                colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
-                colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, 3] = 255
+                update_voxels(sag_start, sag_end, ax_start, ax_end, cor_start, cor_end)
+                # colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
+                # colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, 3] = 255
             else:
-                numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1] = num
-                colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
-                colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, 3] = 255
+                if numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1] is None:
+                    numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1] = [num]
+                else:
+                    np.append(numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1], num)
+                # colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
+                # colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, 3] = 255
         
+        def safe_mean(v):
+            if isinstance(v, (list, np.ndarray)) and len(v) > 0:
+                return np.nanmean(v)
+            else:
+                return np.nan
+
+        vectorized_mean = np.vectorize(safe_mean, otypes=[np.float32])
+        numerical_paramap = vectorized_mean(numerical_paramap)
+        
+        indices = np.full(numerical_paramap.shape, np.nan)
+        mask = np.isfinite(numerical_paramap)
+        indices[mask] = ((255 / (max_val - min_val)) * (numerical_paramap[mask] - min_val)).astype(int)
+        indices = np.clip(indices, 0, 255)   # keep inside bounds
+
+        # TODO
+        colored_paramap = np.zeros(numerical_paramap.shape + (4,), dtype=np.uint8)
+
         # Trim parametric map to the segmentation mask
         mask_bkgr = np.where(self.quants_obj.analysis_objs.seg_data.seg_mask == 0)
         colored_paramap[mask_bkgr] = 0

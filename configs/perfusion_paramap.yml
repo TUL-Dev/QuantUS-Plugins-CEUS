@@ -30,12 +30,9 @@ analysis_funcs:
 # Step 5: Curve quantification
 curve_quant_output_path: 
 curve_quant_funcs:
-  - lognormal_fit_select
+  - dte
 curve_quant_kwargs:
-  start_time: 0 # sec
-  end_time: 60  # sec
-  curves_to_fit:
-    - TIC
+  tic_name: TIC
 
 # Step 6: Visualization
 visualization_type: paramap
@@ -45,5 +42,3 @@ custom_visualization_funcs: # N/A
 visualization_kwargs:
   paramap_folder_path: paramaps_LOGNORMAL_DEMO_L_3
   hide_all_visualizations: False
-  start_time: 0  # in seconds
-  end_time: 300  # in seconds

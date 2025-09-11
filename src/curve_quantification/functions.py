@@ -174,7 +174,7 @@ def wash_rates(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]], da
         data_dict[f'WashInRate_{name}'] = wash_in_rate
         data_dict[f'WashOutRate_{name}'] = wash_out_rate
 
-@required_kwargs('tic_name', 'n_frames_to_analyze')
+@required_kwargs('tic_name')
 def dte(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]], data_dict: dict, **kwargs) -> None:
     """
     Compute the DTE (Dynamic Time Elasticity) from the curves.

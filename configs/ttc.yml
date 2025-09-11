@@ -28,31 +28,13 @@ seg_preproc_kwargs:
   interp: nearest
 
 # Screen 4: Analysis
-analysis_type: curves_paramap
+analysis_type: curves
 analysis_kwargs:
-  curves_output_path: 
-  ax_vox_ovrlp: 50  # %
-  sag_vox_ovrlp: 50  # %
-  cor_vox_ovrlp: 50  # %
-  ax_vox_len: 3    # mm
-  sag_vox_len: 3    # mm
-  cor_vox_len: 3    # mm
+  curves_output_path: CURVES_DEMO.csv
+  binwidth: 25 
+  min_intensity: 0
+  pyradiomics_config_paths:
+    - /home/das/QuantUS_Projs/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate.yml
 analysis_funcs:
   - tic
-
-# Step 5: Curve quantification
-curve_quant_output_path: 
-curve_quant_funcs:
-  - lognormal_fit_select
-curve_quant_kwargs:
-  curves_to_fit:
-    - TIC
-
-# Step 6: Visualization
-visualization_type: paramap
-visualization_params: # Empty covers all parameters
-custom_visualization_funcs: # N/A
-  - plot_tics
-visualization_kwargs:
-  paramap_folder_path: paramaps_LOGNORMAL_DEMO_L_3
-  hide_all_visualizations: False
+  - pyradiomics

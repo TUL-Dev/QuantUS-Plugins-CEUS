@@ -8,7 +8,6 @@ from scipy.ndimage import binary_fill_holes
 from .decorators import extensions
 from ..data_objs.seg import CeusSeg
 from ..data_objs.image import UltrasoundImage
-from ..image_loading.transforms import resample_to_spacing
 
 @extensions(".nii", ".nii.gz")
 def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
@@ -23,15 +22,12 @@ def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     out = CeusSeg()
     seg = nib.load(seg_path)
     out.seg_mask = np.asarray(seg.dataobj, dtype=np.uint8)
+    out.pixdim = seg.header.get_zooms()[:3]
     if seg_path.endswith('.nii.gz'):
         out.seg_name = Path(seg_path).name[:-7]  # Remove '.nii.gz'
     else:
         out.seg_name = Path(seg_path).name[:-4]  # Remove '.nii'
 
-    if image_data.resampled_pixdim is not None:
-        # Resample the segmentation mask to match the image's resampled pixel dimensions
-        out.seg_mask = resample_to_spacing(out.seg_mask, image_data.pixdim, image_data.resampled_pixdim, is_label=True)
-    
     return out
 
 @extensions(".nii", ".nii.gz")
@@ -58,13 +54,10 @@ def load_bolus_mask(image_data: UltrasoundImage, seg_path: str, **kwargs) -> sit
     
     out = CeusSeg()
     out.seg_mask = bolus_seg
+    out.pixdim = image_data.pixdim
     if seg_path.endswith('.nii.gz'):
         out.seg_name = Path(seg_path).name[:-7]  # Remove '.nii.gz'
     else:
         out.seg_name = Path(seg_path).name[:-4]  # Remove '.nii'
-
-    if image_data.resampled_pixdim is not None:
-        # Resample the segmentation mask to match the image's resampled pixel dimensions
-        out.seg_mask = resample_to_spacing(out.seg_mask, image_data.pixdim, image_data.resampled_pixdim, is_label=True)
 
     return out

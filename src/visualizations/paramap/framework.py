@@ -158,10 +158,8 @@ class ParamapVisualizations(ParamapDrawingBase):
         
         im = self.quants_obj.analysis_objs.image_data.pixel_data
         seg = self.quants_obj.analysis_objs.seg_data.seg_mask
-        if hasattr(self.quants_obj.analysis_objs.image_data, 'resampled_pixdim'):
-            pixdim = self.quants_obj.analysis_objs.image_data.resampled_pixdim
-        else:
-            pixdim = self.quants_obj.analysis_objs.image_data.pixdim
+        pixdim = self.quants_obj.analysis_objs.image_data.pixdim
+
         np.save(paramap_folder_path / 'image.npy', im)
         np.save(paramap_folder_path / 'segmentation.npy', seg)
         np.save(paramap_folder_path / 'pix_dims.npy', pixdim)

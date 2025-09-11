@@ -5,7 +5,8 @@ import SimpleITK as sitk
 from tqdm import tqdm
 
 
-def resample_to_spacing(image_arr: np.ndarray, original_spacing: Tuple[float, float, float], new_spacing: Tuple[float, float, float], is_label: bool) -> sitk.Image:
+def resample_to_spacing(image_arr: np.ndarray, original_spacing: Tuple[float, float, float], 
+                        new_spacing: Tuple[float, float, float], interp='linear') -> sitk.Image:
     """Resample to isotropic/anisotropic spacing by recomputing size.
     Maintains image FOV; origin/direction preserved.
     """
@@ -24,6 +25,15 @@ def resample_to_spacing(image_arr: np.ndarray, original_spacing: Tuple[float, fl
 
     if image_arr.ndim == 3:
         image_arr = np.expand_dims(image_arr, axis=-1)
+
+    if interp == 'linear':
+        interpolator = sitk.sitkLinear
+    elif interp == 'nearest':
+        interpolator = sitk.sitkNearestNeighbor
+    elif interp == 'cubic':
+        interpolator = sitk.sitkBSpline
+    else:
+        raise ValueError("Interpolation method must be one of 'linear', 'nearest', or 'cubic'.")
     
     resampled_frames = []
     for i in tqdm(range(image_arr.shape[3]), desc="Resampling frames"):
@@ -41,7 +51,7 @@ def resample_to_spacing(image_arr: np.ndarray, original_spacing: Tuple[float, fl
         resampler.SetOutputOrigin(frame.GetOrigin())
         resampler.SetOutputDirection(frame.GetDirection())
         resampler.SetTransform(sitk.Transform())
-        resampler.SetInterpolator(sitk.sitkNearestNeighbor if is_label else sitk.sitkLinear)
+        resampler.SetInterpolator(interpolator)
 
         out = resampler.Execute(frame)
         out = sitk.Cast(out, frame.GetPixelID())

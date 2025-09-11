@@ -4,7 +4,9 @@ import argparse
 from pathlib import Path
 
 from src.image_loading.options import get_scan_loaders, scan_loader_args
+from src.image_preprocessing.options import get_im_preproc_funcs, get_required_im_preproc_kwargs
 from src.seg_loading.options import get_seg_loaders, seg_loader_args
+from src.seg_preprocessing.options import get_seg_preproc_funcs, get_required_seg_preproc_kwargs
 from src.time_series_analysis.options import get_analysis_types, analysis_args
 from src.curve_loading.options import get_curves_loaders
 from src.curve_quantification.options import get_quantification_funcs
@@ -21,11 +23,13 @@ def main_cli() -> int:
     seg_loader_args(parser)
     analysis_args(parser)
     args = parser.parse_args()
-    args.scan_loader_kwargs = json.loads(args.scan_loader_kwargs)
-    args.seg_loader_kwargs = json.loads(args.seg_loader_kwargs)
-    args.analysis_kwargs = json.loads(args.analysis_kwargs)
-    args.curve_quant_kwargs = json.loads(args.curve_quant_kwargs) if args.curve_quant_kwargs else {}
-    args.visualization_kwargs = json.loads(args.visualization_kwargs) if args.visualization_kwargs else {}
+    args.scan_loader_kwargs = json.loads(args.scan_loader_kwargs) if args.scan_loader_kwargs else {}
+    args.scan_preproc_kwargs = json.loads(args.scan_preproc_kwargs) if args.scan_preproc_kwargs else {}
+    args.seg_loader_kwargs = json.loads(args.seg_loader_kwargs) if args.seg_loader_kwargs else {}
+    args.seg_preproc_kwargs = json.loads(args.seg_preproc_kwargs) if args.seg_preproc_kwargs else {}
+    args.analysis_kwargs = json.loads(args.analysis_kwargs) if not hasattr(args, 'analysis_kwargs') or args.analysis_kwargs is None else args.analysis_kwargs
+    args.curve_quant_kwargs = json.loads(args.curve_quant_kwargs) if not hasattr(args, 'curve_quant_kwargs') or args.curve_quant_kwargs is None else args.curve_quant_kwargs
+    args.visualization_kwargs = json.loads(args.visualization_kwargs) if not hasattr(args, 'visualization_kwargs') or args.visualization_kwargs is None else args.visualization_kwargs
 
     if hasattr(args, 'curves_path') and args.curves_path is not None:
         args.curves_loader_kwargs = json.loads(args.curves_loader_kwargs) if args.curves_loader_kwargs else {}
@@ -41,10 +45,12 @@ def main_yaml() -> int:
         config = yaml.safe_load(f)
         args = argparse.Namespace(**config, **vars(args))
     args.scan_loader_kwargs = {} if args.scan_loader_kwargs is None else args.scan_loader_kwargs
+    args.scan_preproc_kwargs = {} if args.scan_preproc_kwargs is None else args.scan_preproc_kwargs
     args.seg_loader_kwargs = {} if args.seg_loader_kwargs is None else args.seg_loader_kwargs
-    args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs
-    args.curve_quant_kwargs = {} if args.curve_quant_kwargs is None else args.curve_quant_kwargs
-    args.visualization_kwargs = {} if args.visualization_kwargs is None else args.visualization_kwargs
+    args.seg_preproc_kwargs = {} if args.seg_preproc_kwargs is None else args.seg_preproc_kwargs
+    args.analysis_kwargs = {} if not hasattr(args, 'analysis_kwargs') or args.analysis_kwargs is None else args.analysis_kwargs
+    args.curve_quant_kwargs = {} if not hasattr(args, 'curve_quant_kwargs') or args.curve_quant_kwargs is None else args.curve_quant_kwargs
+    args.visualization_kwargs = {} if not hasattr(args, 'visualization_kwargs') or args.visualization_kwargs is None else args.visualization_kwargs
 
     if hasattr(args, 'curves_path') and args.curves_path is not None:
         args.curves_loader_kwargs = {} if args.curves_loader_kwargs is None else args.curves_loader_kwargs
@@ -69,8 +75,10 @@ def main_dict(config: dict) -> int:
         return preloaded_pipeline(args)
 
     args.scan_loader_kwargs = {} if args.scan_loader_kwargs is None else args.scan_loader_kwargs
+    args.scan_preproc_kwargs = {} if args.scan_preproc_kwargs is None else args.scan_preproc_kwargs
     args.seg_loader_kwargs = {} if args.seg_loader_kwargs is None else args.seg_loader_kwargs
-    args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs    
+    args.seg_preproc_kwargs = {} if args.seg_preproc_kwargs is None else args.seg_preproc_kwargs
+    args.analysis_kwargs = {} if args.analysis_kwargs is None else args.analysis_kwargs
     return core_pipeline(args)
 
 def preloaded_pipeline(args) -> int:
@@ -114,7 +122,9 @@ def core_pipeline(args) -> int:
     """Runs the full QuantUS workflow. Different from entrypoints in that all requirements are checked at the start rather than dynamically.
     """
     scan_loaders = get_scan_loaders()
+    scan_preproc_funcs = get_im_preproc_funcs()
     seg_loaders = get_seg_loaders()
+    seg_preproc_funcs = get_seg_preproc_funcs()
     analysis_types, analysis_funcs = get_analysis_types()
     quantification_funcs = get_quantification_funcs()
     all_visualization_types, all_visualization_funcs = get_visualization_types()
@@ -140,7 +150,9 @@ def core_pipeline(args) -> int:
         print(f"Available analysis types: {', '.join(analysis_types.keys())}")
         return 1
     try:
-        visualization_class = all_visualization_types[args.visualization_type]
+        if hasattr(args, 'curve_quant_funcs') and args.curve_quant_funcs is not None \
+            and len(args.curve_quant_funcs) and 'paramap' in args.analysis_type.lower():
+            visualization_class = all_visualization_types[args.visualization_type]
     except KeyError:
         print(f'Visualization type "{args.visualization_type}" is not available!')
         print(f"Available visualization types: {', '.join(all_visualization_types.keys())}")
@@ -155,6 +167,28 @@ def core_pipeline(args) -> int:
         print(f"Available scan loaders: {', '.join(scan_loaders.keys())}")
         return 1
 
+    # Check scan preprocessing setup
+    for func_name in args.scan_preproc_funcs:
+        if func_name == 'none':
+            continue
+        if not func_name in scan_preproc_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in preprocessing functions.\nAvailable functions: {', '.join(scan_preproc_funcs.keys())}")
+        required_kwargs = get_required_im_preproc_kwargs([func_name])
+        for kwarg in required_kwargs:
+            if kwarg not in args.scan_preproc_kwargs:
+                raise ValueError(f"scan_preproc_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+
+    # Check seg preprocessing setup
+    for func_name in args.seg_preproc_funcs:
+        if func_name == 'none':
+            continue
+        if not func_name in seg_preproc_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in segmentation preprocessing functions.\nAvailable functions: {', '.join(seg_preproc_funcs.keys())}")
+        required_kwargs = get_required_seg_preproc_kwargs([func_name])
+        for kwarg in required_kwargs:
+            if kwarg not in args.seg_preproc_kwargs:
+                raise ValueError(f"seg_preproc_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+            
     # Check analysis setup
     if args.analysis_funcs is None:
         args.analysis_funcs = list(analysis_funcs.keys())
@@ -166,35 +200,48 @@ def core_pipeline(args) -> int:
                 raise ValueError(f"analysis_kwargs: Missing required keyword argument '{kwarg}' for function '{name}' in {args.analysis_type} analysis type.")
     
     # Check curve quantification setup
-    if not len(args.curve_quant_funcs):
-        args.curve_quant_funcs = list(quantification_funcs.keys())
-    for func_name in args.curve_quant_funcs:
-        if func_name not in quantification_funcs:
-            raise ValueError(f"Function '{func_name}' not found in curve quantification functions.\nAvailable functions: {', '.join(quantification_funcs.keys())}")
-        required_kwargs = getattr(quantification_funcs[func_name], 'kwarg_names', [])
-        for kwarg in required_kwargs:
-            if kwarg not in args.curve_quant_kwargs:
-                raise ValueError(f"curve_quant_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+    if hasattr(args, 'curve_quant_funcs') and args.curve_quant_funcs is None and not len(args.curve_quant_funcs):
+        for func_name in args.curve_quant_funcs:
+            if func_name not in quantification_funcs:
+                raise ValueError(f"Function '{func_name}' not found in curve quantification functions.\nAvailable functions: {', '.join(quantification_funcs.keys())}")
+            required_kwargs = getattr(quantification_funcs[func_name], 'kwarg_names', [])
+            for kwarg in required_kwargs:
+                if kwarg not in args.curve_quant_kwargs:
+                    raise ValueError(f"curve_quant_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
 
     # Check visualization inputs
-    assert args.visualization_type in all_visualization_types.keys(), f"Visualization type '{args.visualization_type}' not found. Available types: {', '.join(all_visualization_types.keys())}"
-    if args.custom_visualization_funcs is None:
-        args.custom_visualization_funcs = []
-    for func_name in args.custom_visualization_funcs:
-        if func_name not in all_visualization_funcs[args.visualization_type].keys():
-            raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")
+    if hasattr(args, 'curve_quant_funcs') and args.curve_quant_funcs is not None \
+            and len(args.curve_quant_funcs) and 'paramap' in args.analysis_type.lower():
+        assert args.visualization_type in all_visualization_types.keys(), f"Visualization type '{args.visualization_type}' not found. Available types: {', '.join(all_visualization_types.keys())}"
+        if args.custom_visualization_funcs is None:
+            args.custom_visualization_funcs = []
+        for func_name in args.custom_visualization_funcs:
+            if func_name not in all_visualization_funcs[args.visualization_type].keys():
+                raise ValueError(f"Function '{func_name}' not found in visualization functions.\nAvailable functions: {', '.join(all_visualization_funcs.keys())}")
 
     # Parsing / data loading
     image_data = scan_loader(args.scan_path, **args.scan_loader_kwargs) # Load signal data
+    for func_name in args.scan_preproc_funcs:
+        if func_name == 'none':
+            continue
+        image_data = scan_preproc_funcs[func_name](image_data, **args.scan_preproc_kwargs) # Preprocess signal data
+    
     seg_data = seg_loader(image_data, args.seg_path, scan_path=args.scan_path, **args.seg_loader_kwargs) # Load seg data
+    for func_name in args.seg_preproc_funcs:
+        if func_name == 'none':
+            continue
+        seg_data = seg_preproc_funcs[func_name](image_data, seg_data, **args.seg_preproc_kwargs) # Preprocess seg data
+    
     analysis_obj = analysis_class(image_data, seg_data, args.analysis_funcs, **args.analysis_kwargs)
     analysis_obj.compute_curves()
-    curve_quant_obj = CurveQuantifications(analysis_obj, args.curve_quant_funcs, args.curve_quant_output_path, **args.curve_quant_kwargs)
-    curve_quant_obj.compute_quantifications()
-    if 'paramap' in args.analysis_type.lower():
-        assert 'paramap_folder_path' in args.visualization_kwargs, "paramap_folder_path must be specified in visualization_kwargs for paramap visualizations"
-        visualization_obj = visualization_class(curve_quant_obj, args.visualization_params, args.custom_visualization_funcs, **args.visualization_kwargs)
-        visualization_obj.generate_visualizations()
+    
+    if hasattr(args, 'curve_quant_funcs') and args.curve_quant_funcs is not None and len(args.curve_quant_funcs):
+        curve_quant_obj = CurveQuantifications(analysis_obj, args.curve_quant_funcs, args.curve_quant_output_path, **args.curve_quant_kwargs)
+        curve_quant_obj.compute_quantifications()
+        if 'paramap' in args.analysis_type.lower():
+            assert 'paramap_folder_path' in args.visualization_kwargs, "paramap_folder_path must be specified in visualization_kwargs for paramap visualizations"
+            visualization_obj = visualization_class(curve_quant_obj, args.visualization_params, args.custom_visualization_funcs, **args.visualization_kwargs)
+            visualization_obj.generate_visualizations()
 
     return 0
 

@@ -40,10 +40,9 @@ def pyradiomics(image_data: UltrasoundImage, frame: np.ndarray, mask: np.ndarray
         bins[mask == 1] = np.floor((seg - min_intensity) / bin_width).astype(np.float64) + 1.0
         return bins
 
-    pixdims = image_data.resampled_pixdim if image_data.resampled_pixdim else image_data.pixdim
     # Define the affine transformation matrix
     affine = np.eye(cur_frame.ndim + 1)
-    reversed_dims = list(reversed(pixdims))
+    reversed_dims = list(reversed(image_data.pixdim))
     for i in range(cur_frame.ndim):
         affine[i, i] = reversed_dims[i]
     origin = affine[:cur_frame.ndim, -1].tolist()

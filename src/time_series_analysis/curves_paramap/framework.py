@@ -31,14 +31,14 @@ class CurvesParamapAnalysis(CurvesAnalysis):
         if image_data.pixel_data.ndim == 4:
             self.cor_vox_len = kwargs['cor_vox_len']        # mm
             self.cor_vox_ovrlp = kwargs['cor_vox_ovrlp']    # %
-            self.cor_res = self.image_data.resampled_pixdim[2] if self.image_data.resampled_pixdim is not None else self.image_data.pixdim[2]        # mm/px
+            self.cor_res = self.image_data.pixdim[2]        # mm/px
 
         self.ax_vox_len = kwargs['ax_vox_len']              # mm
         self.sag_vox_len = kwargs['sag_vox_len']            # mm
         self.ax_vox_ovrlp = kwargs['ax_vox_ovrlp']          # %
         self.sag_vox_ovrlp = kwargs['sag_vox_ovrlp']        # %
-        self.ax_res = self.image_data.resampled_pixdim[0] if self.image_data.resampled_pixdim is not None else self.image_data.pixdim[0]             # mm/px
-        self.sag_res = self.image_data.resampled_pixdim[1] if self.image_data.resampled_pixdim is not None else self.image_data.pixdim[1]            # mm/px
+        self.ax_res = self.image_data.pixdim[0]             # mm/px
+        self.sag_res = self.image_data.pixdim[1]            # mm/px
 
         self.windows = self.generate_windows()              # Generate sliding windows for the parametric map
         self.curves: List[Dict[str, List[float]]] = []  # List to hold computed curves for each window

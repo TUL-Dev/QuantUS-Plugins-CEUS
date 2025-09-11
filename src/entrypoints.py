@@ -4,7 +4,9 @@ import numpy as np
 
 from src.data_objs import UltrasoundImage, CeusSeg
 from src.image_loading.options import get_scan_loaders
+from src.image_preprocessing.options import get_im_preproc_funcs, get_required_im_preproc_kwargs
 from src.seg_loading.options import get_seg_loaders
+from src.seg_preprocessing.options import get_seg_preproc_funcs, get_required_seg_preproc_kwargs
 from src.time_series_analysis.options import get_analysis_types, get_required_kwargs
 from src.time_series_analysis.curves.framework import CurvesAnalysis
 from src.curve_loading.options import get_curves_loaders
@@ -40,6 +42,36 @@ def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> U
     image_data: UltrasoundImage = scan_loader(scan_path, **scan_loader_kwargs)
     return image_data
 
+def scan_preprocessing_step(preproc_func_names: list[str], image_data: UltrasoundImage, **preproc_kwargs) -> UltrasoundImage:
+    """Preprocess the scan data using the specified preprocessing functions.
+
+    Args:
+        preproc_func_names (list[str]): List of preprocessing function names to apply.
+        image_data (UltrasoundImage): Loaded ultrasound image data.
+        **preproc_kwargs: Additional keyword arguments for the preprocessing functions.
+
+    Returns:
+        UltrasoundImage: Preprocessed ultrasound image data.
+    """
+    if preproc_func_names == ['none']:
+        return image_data
+    preproc_funcs = get_im_preproc_funcs()
+    for func_name in preproc_func_names:
+        if func_name == 'none':
+            continue
+        if func_name not in preproc_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in preprocessing functions.\nAvailable functions: {', '.join(preproc_funcs.keys())}")
+        required_kwargs = get_required_im_preproc_kwargs([func_name])
+        for kwarg in required_kwargs:
+            if kwarg not in preproc_kwargs:
+                raise ValueError(f"preproc_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+    
+    for func_name in preproc_func_names:
+        func = preproc_funcs[func_name]
+        image_data = func(image_data, **preproc_kwargs)
+
+    return image_data
+
 def seg_loading_step(seg_type: str, image_data: UltrasoundImage, seg_path: str,
                      scan_path: str, **seg_loader_kwargs) -> CeusSeg:
     """Load the segmentation data using the specified segmentation loader.
@@ -66,6 +98,36 @@ def seg_loading_step(seg_type: str, image_data: UltrasoundImage, seg_path: str,
         return 1
     
     return seg_loader(image_data, seg_path, scan_path=scan_path, **seg_loader_kwargs)
+
+def seg_preprocessing_step(preproc_func_names: list[str], image_data: UltrasoundImage, seg_data: CeusSeg, **preproc_kwargs) -> CeusSeg:
+    """Preprocess the segmentation data using the specified preprocessing functions.
+
+    Args:
+        preproc_func_names (list[str]): List of preprocessing function names to apply.
+        seg_data (CeusSeg): Loaded segmentation data.
+        **preproc_kwargs: Additional keyword arguments for the preprocessing functions.
+
+    Returns:
+        CeusSeg: Preprocessed segmentation data.
+    """
+    if preproc_func_names == ['none']:
+        return seg_data
+    preproc_funcs = get_seg_preproc_funcs()
+    for func_name in preproc_func_names:
+        if func_name == 'none':
+            continue
+        if func_name not in preproc_funcs.keys():
+            raise ValueError(f"Function '{func_name}' not found in preprocessing functions.\nAvailable functions: {', '.join(preproc_funcs.keys())}")
+        required_kwargs = get_required_seg_preproc_kwargs([func_name])
+        for kwarg in required_kwargs:
+            if kwarg not in preproc_kwargs:
+                raise ValueError(f"preproc_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
+    
+    for func_name in preproc_func_names:
+        func = preproc_funcs[func_name]
+        seg_data = func(image_data, seg_data, **preproc_kwargs)
+
+    return seg_data
 
 def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: CeusSeg, 
                   analysis_funcs: list, **analysis_kwargs) -> CurvesAnalysis:

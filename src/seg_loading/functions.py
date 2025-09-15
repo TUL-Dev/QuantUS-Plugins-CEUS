@@ -31,7 +31,7 @@ def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     return out
 
 @extensions(".nii", ".nii.gz")
-def load_bolus_mask(image_data: UltrasoundImage, seg_path: str, **kwargs) -> sitk.Image:
+def load_bolus_mask(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     """
     Load a bolus mask from a given path.
     

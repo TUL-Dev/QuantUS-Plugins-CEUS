@@ -2,7 +2,6 @@ from typing import List
 from pathlib import Path
 
 import numpy as np
-import SimpleITK
 
 class UltrasoundImage:
     """

@@ -5,7 +5,6 @@ debugpy==1.8.13
 decorator==5.2.1
 executing==2.2.0
 ipykernel==6.29.5
-ipython==9.0.2
 ipython_pygments_lexers==1.1.1
 jedi==0.19.2
 jupyter_client==8.6.3
@@ -26,6 +25,7 @@ pure_eval==0.2.3
 Pygments==2.19.1
 pyradiomics==3.0.1
 python-dateutil==2.9.0.post0
+pyqtdarktheme
 PyQt6==6.7.1
 PyYAML==6.0.2
 pyzmq==26.2.1

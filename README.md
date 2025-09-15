@@ -37,12 +37,15 @@ cd QuantUS-Plugins-CEUS
 ```bash
 $PYTHON310 -m pip install virtualenv
 $PYTOHN310 -m virtualenv .venv
-source .venv/bin/activate # Unix
-.venv\Scripts\activate # Windows (cmd)
+source .venv/bin/activate                           # Unix
+.venv\Scripts\activate                              # Windows (cmd)
 pip install --upgrade pip setuptools wheel
 pip install numpy
 pip install "napari[all]"
+pip install -r requirements.txt
 pip install -e .
+./saveQt.sh                                         # Unix
+.\saveQt.sh                                         # Windows (cmd)
 ```
 
 ## Usage
@@ -108,4 +111,4 @@ src/
 
 ### Additional documentation
 
-More information about each of these sections can be found in the README file of each folder.
+More information about each of these sections can be found in the README file of each folder. Note in each folder, the `options.py` file contains all functions necessary to gather all currently loaded plugins availble for the workflow to use, and the `transforms.py` file contains all functions which may be useful across multiple plugins.

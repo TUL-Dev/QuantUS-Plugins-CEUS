@@ -84,7 +84,7 @@ class SegmentationLoadingController(BaseController):
                 if image_data.spatial_dims == 3:
                     self.view.show_voi_drawing()
                 else:
-                    raise NotImplementedError("Manual segmentation for 2D data not implemented")
+                    self.view.show_roi_drawing()
                 #         raise ValueError("Unsupported RF data dimensions for manual segmentation")
                 # elif image_data.spatial_dims == 3:
                 #     raise NotImplementedError("Manual segmentation for 3D data not implemented")

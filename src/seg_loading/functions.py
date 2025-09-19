@@ -13,16 +13,18 @@ from ..data_objs.image import UltrasoundImage
 def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     """
     Load ROI/VOI data from a NIfTI file. segmentation mask is used as-is.
-
-    Kwargs:
-        assert_scan (bool): If True, assert that the scan file name matches the ROI file name.
     """
     assert seg_path.endswith('.nii.gz') or seg_path.endswith('.nii'), "seg_path must be a NIfTI file"
     
     out = CeusSeg()
     seg = nib.load(seg_path)
     out.seg_mask = np.asarray(seg.dataobj, dtype=np.uint8)
-    out.pixdim = seg.header.get_zooms()[:3]
+
+    if out.seg_mask.ndim == 3: # 2D + time
+        out.pixdim = seg.header.get_zooms()[:2]
+    elif out.seg_mask.ndim == 4: # 3D + time
+        out.pixdim = seg.header.get_zooms()[:3]
+    
     if seg_path.endswith('.nii.gz'):
         out.seg_name = Path(seg_path).name[:-7]  # Remove '.nii.gz'
     else:

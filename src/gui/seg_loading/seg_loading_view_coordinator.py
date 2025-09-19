@@ -13,6 +13,7 @@ from PyQt6.QtCore import pyqtSignal
 from src.gui.mvc.base_view import BaseViewMixin
 from .views.seg_type_selection_widget import SegTypeSelectionWidget
 from .views.seg_file_selection_widget import SegFileSelectionWidget
+from .views.draw_roi_widget import DrawROIWidget
 from .views.draw_voi_widget import DrawVOIWidget
 from src.data_objs import UltrasoundImage, CeusSeg
 
@@ -117,7 +118,7 @@ class SegLoadingViewCoordinator(QStackedWidget):
         
         # Reset widget references
         self._seg_file_widget = None
-        self._frame_selection_widget = None
+        self._roi_drawing_widget = None
         self._voi_drawing_widget = None
         self._seg_preview_widget = None
         
@@ -186,6 +187,18 @@ class SegLoadingViewCoordinator(QStackedWidget):
         # Add to stack and show
         self.addWidget(self._voi_drawing_widget)
         self.setCurrentWidget(self._voi_drawing_widget)
+
+    def show_roi_drawing(self) -> None:
+        """Show the ROI drawing widget."""
+        self._roi_drawing_widget = DrawROIWidget(self._image_data)
+
+        # Connect signals to handle user actions
+        self._roi_drawing_widget.back_requested.connect(self.reset_to_seg_type_selection)
+        self._roi_drawing_widget.close_requested.connect(self.close_requested.emit)
+
+        # Add to stack and show
+        self.addWidget(self._roi_drawing_widget)
+        self.setCurrentWidget(self._roi_drawing_widget)
 
     # ============================================================================
     # USER ACTION HANDLING - Process user interactions and communicate with controller

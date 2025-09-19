@@ -159,6 +159,9 @@ def analysis_step(analysis_type: str, image_data: UltrasoundImage, seg_data: Ceu
             raise ValueError(f"Function '{name}' not found in {analysis_type} analysis type.\nAvailable functions: {', '.join(all_analysis_funcs.keys())}")
         required_analysis_kwargs = get_required_kwargs(analysis_type, [name])
         for kwarg in required_analysis_kwargs:
+            if (kwarg == 'cor_vox_len' or kwarg == 'cor_vox_ovrlp') and image_data.intensities_for_analysis.ndim == 3:
+                # Skip coronal requirements for 2D+time data
+                continue
             if kwarg not in analysis_kwargs:
                 raise ValueError(f"analysis_kwargs: Missing required keyword argument '{kwarg}' for function '{name}' in {analysis_type} analysis type.")
             

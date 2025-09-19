@@ -51,8 +51,12 @@ def pyradiomics(image_data: UltrasoundImage, frame: np.ndarray, mask: np.ndarray
     direction = (direction_matrix / spacing).flatten().tolist()
 
     # HACK: Phantom voxel to ensure proper binning
-    cur_frame[0, 0, 0] = 0
-    cur_mask[0, 0, 0] = 1
+    if cur_frame.ndim == 3:
+        cur_frame[0, 0, 0] = 0
+        cur_mask[0, 0, 0] = 1
+    elif cur_frame.ndim == 2:
+        cur_frame[0, 0] = 0
+        cur_mask[0, 0] = 1
 
     binned_im = _manual_discretize_binwidth(cur_frame, cur_mask)
     image = sitk.GetImageFromArray(binned_im)

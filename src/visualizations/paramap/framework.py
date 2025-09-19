@@ -60,7 +60,25 @@ class ParamapVisualizations(ParamapDrawingBase):
         if np.isneginf(min_val):
             finite_vals = [v for v in param_vals if np.isfinite(v)]
             min_val = min(finite_vals) if finite_vals else 0
-         
+
+        def update_voxels(sag_start, sag_end, ax_start, ax_end, cor_start=None, cor_end=None):
+            if cor_start is None or cor_end is None:
+                for s in range(sag_start, sag_end+1):
+                    for a in range(ax_start, ax_end+1):
+                        if numerical_paramap[a, s] is None:
+                            numerical_paramap[a, s] = [num]
+                        else:
+                            numerical_paramap[a, s].append(num)
+            
+            else:
+                for s in range(sag_start, sag_end+1):
+                    for c in range(cor_start, cor_end+1):
+                        for a in range(ax_start, ax_end+1):
+                            if numerical_paramap[s, c, a] is None:
+                                numerical_paramap[s, c, a] = [num]
+                            else:
+                                numerical_paramap[s, c, a].append(num)
+            
         for row in self.results_df.itertuples():
             ax_start = int(row[3]); sag_start = int(row[4])
             ax_end = int(row[5]); sag_end = int(row[6])
@@ -70,31 +88,16 @@ class ParamapVisualizations(ParamapDrawingBase):
             num = getattr(row, param)
             if not np.isfinite(num):
                 continue
-
-            def update_voxels(sag_start, sag_end, ax_start, ax_end, cor_start=None, cor_end=None):
-                if cor_start is None or cor_end is None:
-                    raise NotImplementedError("2D paramap drawing not implemented")
-                
-                for s in range(sag_start, sag_end+1):
-                    for c in range(cor_start, cor_end+1):
-                        for a in range(ax_start, ax_end+1):
-                            if numerical_paramap[s, c, a] is None:
-                                numerical_paramap[s, c, a] = [num]
-                            else:
-                                numerical_paramap[s, c, a].append(num)
             
             if hasattr(self.quants_obj.analysis_objs, 'cor_vox_len'):
                 update_voxels(sag_start, sag_end, ax_start, ax_end, cor_start, cor_end)
                 # colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
                 # colored_paramap[sag_start:sag_end+1, cor_start:cor_end+1, ax_start:ax_end+1, 3] = 255
             else:
-                if numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1] is None:
-                    numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1] = [num]
-                else:
-                    np.append(numerical_paramap[ax_start:ax_end+1, sag_start:sag_end+1], num)
+                update_voxels(sag_start, sag_end, ax_start, ax_end)
                 # colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
                 # colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, 3] = 255
-        
+        print("Completed populating numerical paramap.") # DEBUG
         def safe_mean(v):
             if isinstance(v, (list, np.ndarray)) and len(v) > 0:
                 return np.nanmean(v)

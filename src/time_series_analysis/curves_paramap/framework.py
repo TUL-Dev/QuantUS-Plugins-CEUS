@@ -25,10 +25,10 @@ class CurvesParamapAnalysis(CurvesAnalysis):
         assert 'sag_vox_len' in kwargs.keys(), 'Must include sagittal voxel length for parametric map computation'
         assert 'ax_vox_ovrlp' in kwargs.keys(), 'Must include axial voxel overlap for parametric map computation'
         assert 'sag_vox_ovrlp' in kwargs.keys(), 'Must include sagittal voxel length for parametric map computation'
-        assert 'cor_vox_len' in kwargs.keys(), 'Must include coronal voxel length for parametric map computation'
-        assert 'cor_vox_ovrlp' in kwargs.keys(), 'Must include coronal voxel overlap for parametric map computation'
+        assert 'cor_vox_len' in kwargs.keys() or image_data.intensities_for_analysis.ndim == 3, 'Must include coronal voxel length for parametric map computation'
+        assert 'cor_vox_ovrlp' in kwargs.keys() or image_data.intensities_for_analysis.ndim == 3, 'Must include coronal voxel overlap for parametric map computation'
 
-        if image_data.pixel_data.ndim == 4:
+        if image_data.intensities_for_analysis.ndim == 4:
             self.cor_vox_len = kwargs['cor_vox_len']        # mm
             self.cor_vox_ovrlp = kwargs['cor_vox_ovrlp']    # %
             self.cor_res = self.image_data.pixdim[2]        # mm/px
@@ -67,8 +67,8 @@ class CurvesParamapAnalysis(CurvesAnalysis):
 
         for ax_start in range(min_ax, max_ax, ax_step):
             for sag_start in range(min_sag, max_sag, sag_step):
-                for cor_start in range(min_cor, max_cor, cor_step):
-                        if hasattr(self, 'cor_vox_len'):
+                if hasattr(self, 'cor_vox_len'):
+                    for cor_start in range(min_cor, max_cor, cor_step):
                             # Determine if window is inside analysis volume
                             mask_vals = self.seg_data.seg_mask[
                                 sag_start : (sag_start + sag_step),
@@ -84,28 +84,54 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                             if percentage_ones > 0.2:
                                 windows.append((ax_start, sag_start, cor_start, 
                                                 ax_start + ax_step, sag_start + sag_step, cor_start + cor_step))
-                        else:
-                            windows.append((ax_start, sag_start, 
-                                            ax_start + ax_step, sag_start + sag_step))
+                            else:
+                                windows.append((ax_start, sag_start, 
+                                                ax_start + ax_step, sag_start + sag_step))
+                else:
+                    # Determine if window is inside analysis volume
+                    mask_vals = self.seg_data.seg_mask[
+                        ax_start : (ax_start + ax_step),
+                        sag_start : (sag_start + sag_step),
+                    ]
+                    
+                    # Define Percentage Threshold
+                    total_number_of_elements_in_region = mask_vals.size
+                    number_of_ones_in_region = len(np.where(mask_vals == True)[0])
+                    percentage_ones = number_of_ones_in_region / total_number_of_elements_in_region
+
+                    if percentage_ones > 0.2:
+                        windows.append((ax_start, sag_start, 
+                                        ax_start + ax_step, sag_start + sag_step))
+                    else:
+                        windows.append((ax_start, sag_start, 
+                                        ax_start + ax_step, sag_start + sag_step))
 
         return windows
         
     def compute_curves(self):
         """Compute UTC parameters for each window in the ROI, creating a parametric map."""
-        for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
-                                    desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
-            frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
-            for window_ix, window in enumerate(self.windows):
-                mask = np.zeros_like(self.seg_data.seg_mask)
-                if hasattr(self, 'cor_vox_len'):
+        if self.image_data.intensities_for_analysis.ndim == 4: # 3D + time
+            for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
+                                        desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
+                frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
+                for window_ix, window in enumerate(self.windows):
+                    mask = np.zeros_like(self.seg_data.seg_mask)
                     ax_start, sag_start, cor_start, ax_end, sag_end, cor_end = window
                     mask[sag_start:sag_end+1, 
                             cor_start:cor_end+1, 
                             ax_start:ax_end+1] = 1
-                else:
+                    self.extract_frame_features(frame_data, mask, frame_ix, window_ix)
+        elif self.image_data.intensities_for_analysis.ndim == 3: # 2D + time
+            for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[0])), 
+                                        desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[0]):
+                frame_data = self.image_data.intensities_for_analysis[frame]
+                for window_ix, window in enumerate(self.windows):
+                    mask = np.zeros_like(self.seg_data.seg_mask)
                     ax_start, sag_start, ax_end, sag_end = window
                     mask[ax_start:ax_end+1, sag_start:sag_end+1] = 1
-                self.extract_frame_features(frame_data, mask, frame_ix, window_ix)
+                    self.extract_frame_features(frame_data, mask, frame_ix, window_ix)
+        else:
+            raise ValueError("Image data must be either 2D+time or 3D+time.")
 
         if self.curves_output_path:
             self.save_curves()

@@ -29,15 +29,26 @@ class CurvesAnalysis:
         self.curve_funcs: Dict[str, callable] = {name: globals()[name] for name in self.curve_groups if name in globals()}
         self.curves_output_path = self.analysis_kwargs.get('curves_output_path', None)
         frame_rate = self.image_data.frame_rate if np.isfinite(self.image_data.frame_rate) else 1.0
-        self.time_arr = np.arange(self.image_data.pixel_data.shape[3]) * frame_rate
+        if image_data.intensities_for_analysis.ndim == 4: # 3D + time
+            self.time_arr = np.arange(self.image_data.intensities_for_analysis.shape[3]) * frame_rate
+        elif image_data.intensities_for_analysis.ndim == 3: # 2D + time
+            self.time_arr = np.arange(self.image_data.intensities_for_analysis.shape[0]) * frame_rate
+        else:
+            raise ValueError("Image data must be either 2D+time or 3D+time.")
 
     def compute_curves(self):
         """Compute UTC parameters for each window in the ROI, creating a parametric map.
         """
-        for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
-                                    desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
-            frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
-            self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
+        if len(self.image_data.intensities_for_analysis.shape) == 4: # 3D + time
+            for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
+                                        desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
+                frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
+                self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
+        elif len(self.image_data.intensities_for_analysis.shape) == 3: # 2D + time
+            for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[0])), 
+                                        desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[0]):
+                frame_data = self.image_data.intensities_for_analysis[frame]
+                self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
 
         if self.curves_output_path:
             self.save_curves()

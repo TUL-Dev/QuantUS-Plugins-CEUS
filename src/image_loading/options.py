@@ -33,7 +33,7 @@ def get_scan_loaders() -> dict:
                     classes[folder.name]['cls'] = entry_class
                     classes[folder.name]['file_exts'] = entry_class.extensions
             except ModuleNotFoundError as e:
-                print(e)
+                # print(e)
                 # Handle the case where the module cannot be found
                 pass
     

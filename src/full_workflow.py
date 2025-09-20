@@ -168,6 +168,8 @@ def core_pipeline(args) -> int:
         return 1
 
     # Check scan preprocessing setup
+    if args.scan_preproc_funcs is None:
+        args.scan_preproc_funcs = []
     for func_name in args.scan_preproc_funcs:
         if func_name == 'none':
             continue
@@ -179,6 +181,8 @@ def core_pipeline(args) -> int:
                 raise ValueError(f"scan_preproc_kwargs: Missing required keyword argument '{kwarg}' for function '{func_name}'.")
 
     # Check seg preprocessing setup
+    if args.seg_preproc_funcs is None:
+        args.seg_preproc_funcs = []
     for func_name in args.seg_preproc_funcs:
         if func_name == 'none':
             continue

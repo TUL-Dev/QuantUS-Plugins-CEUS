@@ -301,6 +301,11 @@ class DrawROIWidget(QWidget, BaseViewMixin):
         xpts = np.array(xpts)
         ypts = np.array(ypts)
         
+        # Remove duplicate points to prevent overshooting
+        mask = np.concatenate(([True], (np.diff(xpts) != 0) | (np.diff(ypts) != 0)))
+        xpts = xpts[mask]
+        ypts = ypts[mask]
+        
         # Create parameter t based on cumulative distance for natural parameterization
         distances = np.sqrt(np.diff(xpts)**2 + np.diff(ypts)**2)
         cumulative_dist = np.concatenate(([0], np.cumsum(distances)))

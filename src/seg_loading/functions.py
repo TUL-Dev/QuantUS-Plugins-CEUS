@@ -10,7 +10,7 @@ from ..data_objs.seg import CeusSeg
 from ..data_objs.image import UltrasoundImage
 
 @extensions(".nii", ".nii.gz")
-def nifti_voi(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
+def nifti(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     """
     Load ROI/VOI data from a NIfTI file. segmentation mask is used as-is.
     """

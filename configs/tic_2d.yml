@@ -1,0 +1,31 @@
+# Screen 1: Scan loader
+scan_loader: avi
+
+# Screen 2: Scan inputs
+scan_path: /Users/davidspector/Home/Stanford/QuantUS Projects/Sample Data/2D AVI DCE-US/2dScan.avi
+scan_loader_kwargs:
+  transpose: False
+
+# Step 3: Image preprocessing (None for 2D)
+scan_preproc_funcs:
+scan_preproc_kwargs:
+
+# Screen 4: Segmentation (either drawing or saved)
+seg_path: /Users/davidspector/Home/Stanford/QuantUS Projects/Sample Data/2D AVI DCE-US/demo_seg.nii.gz
+seg_loader: nifti
+seg_loader_kwargs:
+
+# Step 5: Segmentation preprocessing
+seg_preproc_funcs: 
+seg_preproc_kwargs:
+
+# Screen 4: Analysis
+analysis_type: curves
+analysis_kwargs:
+  curves_output_path: CURVES_DEMO.csv
+  binwidth: 25 
+  min_intensity: 0
+  pyradiomics_config_paths:
+    - /Users/davidspector/Home/Stanford/QuantUS Projects/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate.yml
+analysis_funcs:
+  - tic

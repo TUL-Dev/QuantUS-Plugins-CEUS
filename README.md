@@ -112,3 +112,5 @@ src/
 ### Additional documentation
 
 More information about each of these sections can be found in the README file of each folder. Note in each folder, the `options.py` file contains all functions necessary to gather all currently loaded plugins availble for the workflow to use, and the `transforms.py` file contains all functions which may be useful across multiple plugins.
+
+For a list of improvements or bugs to work on, see the [contribution page](https://docs.google.com/spreadsheets/d/13wCCrqta2nT5E9PE7iZX5URrjj2o3aA5QsLkOFH5lFg/edit?usp=sharing).

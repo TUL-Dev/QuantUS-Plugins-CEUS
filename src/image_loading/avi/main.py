@@ -62,6 +62,6 @@ class EntryClass(UltrasoundImage):
         pix_width_mm = kwargs.get('pix_width_mm', 1.0)
 
         self.pixdim = [pix_height_mm, pix_width_mm]
-        self.frame_rate = frame_rate
+        self.frame_rate = frame_rate # in seconds
         self.intensities_for_analysis = grayscale_arr
         self.pixel_data = pixel_data

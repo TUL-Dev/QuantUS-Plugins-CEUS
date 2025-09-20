@@ -29,7 +29,7 @@ class EntryClass(UltrasoundImage):
         img = nib.load(scan_path)
         header = img.header
         pixdim = header.get_zooms()[:3]  # tuple of pixel dimensions
-        frame_rate = 1.0 / header.get_zooms()[3] if len(header.get_zooms()) > 3 and header.get_zooms()[3] > 0 else 1
+        frame_rate = 1.0 / header.get_zooms()[3] if len(header.get_zooms()) > 3 and header.get_zooms()[3] > 0 else 1 # s
 
         if kwargs.get('transpose', False):
             self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8).T

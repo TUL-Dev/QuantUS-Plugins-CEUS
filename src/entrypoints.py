@@ -1,4 +1,5 @@
 import copy
+import os
 
 import numpy as np
 
@@ -32,8 +33,11 @@ def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> U
     # Find the scan loader
     try:
         scan_loader = scan_loaders[scan_type]['cls']
-        assertions = [scan_path.endswith(ext) for ext in scan_loaders[scan_type]['file_exts']]
-        assert max(assertions), f"Scan file must end with {', '.join(scan_loaders[scan_type]['file_exts'])}"
+        if scan_loaders[scan_type]['file_exts'] == ["FOLDER"]:
+            assert os.path.isdir(scan_path), "Input path must be a folder!"
+        else:
+            assertions = [scan_path.endswith(ext) for ext in scan_loaders[scan_type]['file_exts']]
+            assert max(assertions), f"Scan file must end with {', '.join(scan_loaders[scan_type]['file_exts'])}"
     except KeyError:
         print(f'Parser "{scan_type}" is not available!')
         print(f"Available parsers: {', '.join(scan_loaders.keys())}")

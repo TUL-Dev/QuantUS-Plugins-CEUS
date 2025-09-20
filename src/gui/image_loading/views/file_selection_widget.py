@@ -59,7 +59,10 @@ class FileSelectionWidget(QWidget, BaseViewMixin):
         
         # Update labels to reflect selected scan type
         self._ui.select_data_label.setText(f"Select {self._scan_type_name} Files")
-        self._ui.image_path_label.setText(f"Input Path to Image file\n ({', '.join(self._file_extensions)})")
+        if self._file_extensions != ["FOLDER"]:
+            self._ui.image_path_label.setText(f"Input Path to Image file\n ({', '.join(self._file_extensions)})")
+        else:
+            self._ui.image_path_label.setText(f"Input Path to Image Folder")
 
         if len(self._loading_options):
             self._show_loading_options()
@@ -113,7 +116,12 @@ class FileSelectionWidget(QWidget, BaseViewMixin):
 
     def _on_choose_image_path(self) -> None:
         """Handle image file selection."""
-        self._select_file_helper(self._ui.image_path_input, self._file_extensions)
+        if self._file_extensions == ["FOLDER"]:
+            dir_name = QFileDialog.getExistingDirectory(self, "Select Directory")
+            if dir_name:
+                self._ui.image_path_input.setText(dir_name)
+        else:
+            self._select_file_helper(self._ui.image_path_input, self._file_extensions)
         
     def _on_generate_image(self) -> None:
         """Handle image generation request."""
@@ -125,8 +133,11 @@ class FileSelectionWidget(QWidget, BaseViewMixin):
         if not os.path.exists(image_path):
             self.show_error(f"Image file does not exist: {os.path.basename(image_path)}")
             return
-        if not image_path.endswith(tuple(self._file_extensions)):
+        if not image_path.endswith(tuple(self._file_extensions)) and self._file_extensions != ['FOLDER']:
             self.show_error(f"Image file must have one of the following extensions: {', '.join(self._file_extensions)}")
+            return
+        if self._file_extensions == ["FOLDER"] and not os.path.isdir(image_path):
+            self.show_error("Input path must be a folder!")
             return
             
         self.clear_error()

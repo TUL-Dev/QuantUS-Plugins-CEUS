@@ -6,9 +6,9 @@ from ...data_objs.image import UltrasoundImage
 
 class EntryClass(UltrasoundImage):
     """
-    Loader class for AVI CEUS image data.
+    Loader class for MP4 CEUS image data.
 
-    This class parses CEUS data from AVI files, extracting pixel data, pixel dimensions,
+    This class parses CEUS data from MP4 files, extracting pixel data, pixel dimensions,
     frame rate for the scan.
     The following attributes are set:
         - pixel_data, pixdim, frame_rate: for the scan
@@ -29,7 +29,7 @@ class EntryClass(UltrasoundImage):
         
         cap = cv2.VideoCapture(scan_path)
         n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        frame_rate = 1/cap.get(cv2.CAP_PROP_FPS)
+        frame_rate = 1/cap.get(cv2.CAP_PROP_FPS) # s
         ret, first_frame = cap.read()
         if not ret:
             raise ValueError("No data in video file!")

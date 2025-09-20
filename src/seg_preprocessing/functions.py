@@ -3,7 +3,7 @@ import numpy as np
 from .decorators import required_kwargs
 from ..data_objs.image import UltrasoundImage
 from ..data_objs.seg import CeusSeg
-from ..image_preprocessing.transforms import resample_to_spacing
+from ..image_preprocessing.transforms import resample_to_spacing_2d, resample_to_spacing_3d
 
 @required_kwargs('target_vox_size', 'interp')
 def resample(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSeg:
@@ -21,6 +21,11 @@ def resample(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSe
     else:
         pixdim = image_data.pixdim
 
-    seg_data.seg_mask = resample_to_spacing(seg_data.seg_mask, pixdim, target_vox_size, interp=interp)
+    if seg_data.seg_mask.ndim == 3:
+        seg_data.seg_mask = resample_to_spacing_3d(seg_data.seg_mask, pixdim, target_vox_size, interp=interp)
+    elif seg_data.seg_mask.ndim == 2:
+        seg_data.seg_mask = resample_to_spacing_2d(seg_data.seg_mask, pixdim, target_vox_size, interp=interp)
+    else:
+        raise ValueError("Segmentation mask must be either 2D or 3D.")
 
     return seg_data

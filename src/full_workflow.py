@@ -1,4 +1,5 @@
 import json
+import os
 import yaml
 import argparse
 from pathlib import Path
@@ -132,7 +133,10 @@ def core_pipeline(args) -> int:
     # Get applicable plugins
     try:
         scan_loader = scan_loaders[args.scan_loader]['cls']
-        assert max([args.scan_path.endswith(ext) for ext in scan_loaders[args.scan_loader]['file_exts']]), f"File must end with {scan_loaders[args.scan_loader]['file_exts']}"
+        if scan_loaders[args.scan_loader]['file_exts'] == ["FOLDER"]:
+            assert os.path.isdir(args.scan_path), "Input path must be a folder!"
+        else:
+            assert max([args.scan_path.endswith(ext) for ext in scan_loaders[args.scan_loader]['file_exts']]), f"File must end with {scan_loaders[args.scan_loader]['file_exts']}"
     except KeyError:
         print(f'Parser "{args.scan_loader}" is not available!')
         print(f"Available parsers: {', '.join(scan_loaders.keys())}")
@@ -160,8 +164,11 @@ def core_pipeline(args) -> int:
     
     # Check scan paths
     try:
-        assertions = [args.scan_path.endswith(ext) for ext in scan_loaders[args.scan_loader]['file_exts']]
-        assert max(assertions), f"Scan file must end with {', '.join(scan_loaders[args.scan_loader]['file_exts'])}"
+        if scan_loaders[args.scan_loader]['file_exts'] == ["FOLDER"]:
+            assert os.path.isdir(args.scan_path), "Input path must be a folder!"
+        else:
+            assertions = [args.scan_path.endswith(ext) for ext in scan_loaders[args.scan_loader]['file_exts']]
+            assert max(assertions), f"Scan file must end with {', '.join(scan_loaders[args.scan_loader]['file_exts'])}"
     except KeyError:
         print(f"Scan loader '{args.scan_loader}' does not have defined file extensions.")
         print(f"Available scan loaders: {', '.join(scan_loaders.keys())}")

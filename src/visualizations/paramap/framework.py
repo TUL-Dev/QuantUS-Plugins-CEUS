@@ -97,7 +97,6 @@ class ParamapVisualizations(ParamapDrawingBase):
                 update_voxels(sag_start, sag_end, ax_start, ax_end)
                 # colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, :3] = (np.array(cmap[color_ix])*255).astype(np.uint8)
                 # colored_paramap[ax_start:ax_end+1, sag_start:sag_end+1, 3] = 255
-        print("Completed populating numerical paramap.") # DEBUG
         def safe_mean(v):
             if isinstance(v, (list, np.ndarray)) and len(v) > 0:
                 return np.nanmean(v)
@@ -169,5 +168,6 @@ class ParamapVisualizations(ParamapDrawingBase):
 
         # Save parametric maps
         for numerical_paramap, colored_paramap, param in zip(self.numerical_paramaps, self.colored_paramaps, self.paramap_names):
-            self.save_paramap(colored_paramap, paramap_folder_path / f'{param}_colored.npy')
+            # Not saving colored map for now, as it needs to be fixed
+            # self.save_paramap(colored_paramap, paramap_folder_path / f'{param}_colored.npy')
             self.save_paramap(numerical_paramap, paramap_folder_path / f'{param}_numerical.npy')

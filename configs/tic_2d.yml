@@ -1,8 +1,8 @@
 # Screen 1: Scan loader
-scan_loader: avi
+scan_loader: custom_dicom
 
 # Screen 2: Scan inputs
-scan_path: /Users/davidspector/Home/Stanford/QuantUS Projects/Sample Data/2D AVI DCE-US/2dScan.avi
+scan_path: /home/das/Downloads/DICOM Sample 3/
 scan_loader_kwargs:
   transpose: False
 
@@ -11,7 +11,7 @@ scan_preproc_funcs:
 scan_preproc_kwargs:
 
 # Screen 4: Segmentation (either drawing or saved)
-seg_path: /Users/davidspector/Home/Stanford/QuantUS Projects/Sample Data/2D AVI DCE-US/demo_seg.nii.gz
+seg_path: /home/das/Downloads/DICOM Sample 3/demo_seg.nii.gz
 seg_loader: nifti
 seg_loader_kwargs:
 
@@ -19,7 +19,7 @@ seg_loader_kwargs:
 seg_preproc_funcs: 
 seg_preproc_kwargs:
 
-# Screen 4: Analysis
+# Step 6: Curve definition and extraction
 analysis_type: curves
 analysis_kwargs:
   curves_output_path: CURVES_DEMO.csv
@@ -29,3 +29,11 @@ analysis_kwargs:
     - /Users/davidspector/Home/Stanford/QuantUS Projects/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate.yml
 analysis_funcs:
   - tic
+
+# Step 7 curve quantification
+curve_quant_output_path: TIC_RESULTS.csv 
+curve_quant_funcs:
+  - lognormal_fit_full
+curve_quant_kwargs:
+  curves_to_fit:
+    - TIC

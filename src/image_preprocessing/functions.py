@@ -2,7 +2,7 @@ import numpy as np
 
 from .decorators import required_kwargs
 from ..data_objs.image import UltrasoundImage
-from .transforms import resample_to_spacing
+from .transforms import resample_to_spacing_2d, resample_to_spacing_3d
 
 @required_kwargs('arr_to_standardize')
 def standardize(image_data: UltrasoundImage, **kwargs) -> UltrasoundImage:
@@ -45,8 +45,14 @@ def resample(image_data: UltrasoundImage, **kwargs) -> UltrasoundImage:
     target_vox_size = kwargs['target_vox_size']
     interp = kwargs['interp']
 
-    image_data.pixel_data = resample_to_spacing(image_data.pixel_data, image_data.pixdim, target_vox_size, interp=interp)
-    image_data.intensities_for_analysis = resample_to_spacing(image_data.intensities_for_analysis, image_data.pixdim, target_vox_size, interp=interp)
+    if image_data.intensities_for_analysis.ndim == 4:
+        image_data.pixel_data = resample_to_spacing_2d(image_data.pixel_data, image_data.pixdim, target_vox_size, interp=interp)
+        image_data.intensities_for_analysis = resample_to_spacing_3d(image_data.intensities_for_analysis, image_data.pixdim, target_vox_size, interp=interp)
+    elif image_data.intensities_for_analysis.ndim == 3:
+        image_data.pixel_data = resample_to_spacing_2d(image_data.pixel_data, image_data.pixdim, target_vox_size, interp=interp)
+        image_data.intensities_for_analysis = resample_to_spacing_2d(image_data.intensities_for_analysis, image_data.pixdim, target_vox_size, interp=interp)
+    else:
+        raise ValueError("Image data must be either 3D or 4D for resampling.")
 
     image_data.extras_dict['original_spacing'] = image_data.pixdim
     image_data.pixdim = target_vox_size

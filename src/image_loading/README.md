@@ -8,7 +8,7 @@ New plugins can be dropped into this folder to extend the capabilities of QuantU
 
 ### Core data class
 
-All CEUS parsers load data into the `UltrasoundImage` class as defined in [src/data_objs/image.py](../data_objs/image.py). Thus, the class entrypoints of each parser is a child class of the `UltrasoundImage` class.
+All CEUS parsers load data into the `UltrasoundImage` class as defined in [src/data_objs/image.py](../data_objs/image.py). Thus, the class entrypoint of each parser is a child class of the `UltrasoundImage` class.
 
 ```python
 class UltrasoundImage:

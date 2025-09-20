@@ -2,7 +2,7 @@
 scan_loader: nifti
 
 # Screen 2: Scan inputs
-scan_path: /media/das/TOSHIBA EXT/P-Selectin Data/Feb 2019 Mice Batch 2/MouseBatch2D01_02162019/MouseC2M3_d001_02162019/20190216160924.918.nii.gz
+scan_path: /Users/davidspector/Home/Stanford/QuantUS Projects/Sample Data/3D TJU-SHC CEUS/TJU-P01-V2-CEUS_12.32.11/TJU-P01-V2-CEUS_12.32.11_mf_sip_capture_50_2_1_0.raw_CEUS.nii.gz
 scan_loader_kwargs:
   transpose: False
 

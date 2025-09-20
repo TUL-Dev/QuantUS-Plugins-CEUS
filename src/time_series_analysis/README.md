@@ -22,7 +22,7 @@ Each curve definition plugin should be placed in the [src/time_series_analysis/c
 def CURVE_NAME(image_data: UltrasoundImage, frame: np.ndarray, mask: np.ndarray, **kwargs) -> Tuple[List[str], List[np.ndarray]]:
 ```
 
-where `CURVE_NAME` is the name of your parser. The inputs contain the standard parser inputs for a segmentation parser, and the `kwargs` variable can be used to add any additional input variables that may be needed.
+where `CURVE_NAME` is the name of your parser. The inputs contain the standard inputs for a curve type function, and the `kwargs` variable can be used to add any additional input variables that may be needed.
 
 * The `frame` input contains a single frame of linearized intensities of the inputted CEUS scan
 * The `mask` input contains the binary segmentation mask

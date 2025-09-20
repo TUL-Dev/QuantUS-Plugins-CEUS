@@ -54,7 +54,7 @@ pip install -e .
 
 1. **Command-line interface (CLI)**
 
-The CLI enables user to run the entire workflow at once and save results as needed. Sample workflow configurations are in the `configs` folder. This method is ideal for playing with different settings and rapidly executing different analysis runs on a single CEUS scan.
+The CLI enables users to run the entire workflow at once and save results as needed. Sample workflow configurations are in the `configs` folder. This method is ideal for playing with different settings and rapidly executing different analysis runs on a single CEUS scan.
 
 This entrypoint can be accessed using
 

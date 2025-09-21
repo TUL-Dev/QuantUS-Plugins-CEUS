@@ -21,7 +21,7 @@ class UltrasoundImage:
         self.scan_path = scan_path
         self.pixel_data: np.ndarray # image data as a numpy array
         self.pixdim: List[float] # mm
-        self.frame_rate: float # Hz
+        self.frame_rate: float # seconds/frame
         self.intensities_for_analysis: np.ndarray # linearized intensity values
         self.extras_dict: dict = {} # dictionary for any extra information inputted by plugins
 ```

@@ -124,7 +124,7 @@ def generate_curves(bolus_data_path: str, molecular_data_path: str,
 
             pipeline_config_dict['scan_path'] = scan
             pipeline_config_dict['seg_path'] = mask
-            pipeline_config_dict['seg_loader'] = 'nifti_voi'
+            pipeline_config_dict['seg_loader'] = 'nifti'
 
             output_path = Path(results_dir) / f"{mouse}_{Path(scan).stem}_{Path(mask).stem}_molecular_curves.csv"
             pipeline_config_dict['analysis_kwargs']['curves_output_path'] = str(output_path)

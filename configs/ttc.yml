@@ -15,7 +15,7 @@ scan_preproc_kwargs:
 
 # Screen 4: Segmentation (either drawing or saved)
 seg_path: /media/das/TOSHIBA EXT/P-Selectin Data/Feb VOIs (David)/20190216160924.918_segmentation_LEFT.nii.gz
-seg_loader: nifti_voi
+seg_loader: nifti
 seg_loader_kwargs:
   assert_scan: False
   assert_phantom: False

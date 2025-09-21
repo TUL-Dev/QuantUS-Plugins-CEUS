@@ -84,9 +84,6 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                             if percentage_ones > 0.2:
                                 windows.append((ax_start, sag_start, cor_start, 
                                                 ax_start + ax_step, sag_start + sag_step, cor_start + cor_step))
-                            else:
-                                windows.append((ax_start, sag_start, 
-                                                ax_start + ax_step, sag_start + sag_step))
                 else:
                     # Determine if window is inside analysis volume
                     mask_vals = self.seg_data.seg_mask[
@@ -100,9 +97,6 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                     percentage_ones = number_of_ones_in_region / total_number_of_elements_in_region
 
                     if percentage_ones > 0.2:
-                        windows.append((ax_start, sag_start, 
-                                        ax_start + ax_step, sag_start + sag_step))
-                    else:
                         windows.append((ax_start, sag_start, 
                                         ax_start + ax_step, sag_start + sag_step))
 

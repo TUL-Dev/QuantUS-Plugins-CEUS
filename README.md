@@ -76,6 +76,11 @@ The end goal here is to support this entire customizable workflow through a GUI.
 python src/gui/run.py
 ```
 
+```bash
+# If the couldn't find src module error message appears
+python -m src.gui.run  
+```
+
 4. **Parametric Map Viewing**
 
 Parametric maps generated from the workflow can be viewed in both 2D and 3D. A tutorial for achieving this is in the `CLI-Demos/paramaps_viewing_demo.ipynb` notebook.
@@ -83,6 +88,13 @@ Parametric maps generated from the workflow can be viewed in both 2D and 3D. A t
 5. **Python module (Advanced)**
 
 Examples in `CLI-Demos` illustrate how each individual step in the workflow can be accessed via a packaged Python entrypoint. This can be used for advanced workflow customization directly in Python.
+
+6. **Trouble Shooting **
+```bash
+# If you encounter an error with 'cocoa'
+pip uninstall PyQt6 PyQt6-Qt6 PyQt6_sip 
+pip install PyQt6
+```
 
 ### Recommended workflow
 

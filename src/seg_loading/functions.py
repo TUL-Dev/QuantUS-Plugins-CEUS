@@ -18,7 +18,18 @@ def nifti(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     
     out = CeusSeg()
     seg = nib.load(seg_path)
-    out.seg_mask = np.asarray(seg.dataobj, dtype=np.uint8)
+
+    # Get the number of frames from the image data and prepare the mask for it
+    frame_number = image_data.pixel_data.shape[3]
+    use_mc = True
+    if use_mc == False:
+        out.seg_mask = np.asarray(seg.dataobj, dtype=np.uint8) 
+    else:
+        # Load the base 3D mask
+        base_mask_3d = np.asarray(seg.dataobj, dtype=np.uint8)
+        out.seg_mask = np.repeat(base_mask_3d[..., np.newaxis], frame_number, axis=-1)
+        print('The shape of the motion compensated mask is ' + str(out.seg_mask.shape))
+        
 
     if out.seg_mask.ndim == 3: # 2D + time
         out.pixdim = seg.header.get_zooms()[:2]

@@ -116,12 +116,18 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                             ax_start:ax_end+1] = 1
                     self.extract_frame_features(frame_data, mask, frame_ix, window_ix)
         elif self.image_data.intensities_for_analysis.ndim == 3: # 2D + time
+            is_mask_3d = len(self.seg_data.seg_mask.shape) == 3 
+
             for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[0])), 
                                         desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[0]):
                 frame_data = self.image_data.intensities_for_analysis[frame]
                 for window_ix, window in enumerate(self.windows):
                     mask = np.zeros_like(self.seg_data.seg_mask)
                     ax_start, sag_start, ax_end, sag_end = window
+                    if is_mask_3d:
+                        self.extract_frame_features(frame_data, self.seg_data.seg_mask[frame_ix,:,:], frame_ix, window_ix)
+                    else:
+                        self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix, window_ix)
                     mask[ax_start:ax_end+1, sag_start:sag_end+1] = 1
                     self.extract_frame_features(frame_data, mask, frame_ix, window_ix)
         else:

@@ -47,8 +47,13 @@ class CurvesAnalysis:
         elif len(self.image_data.intensities_for_analysis.shape) == 3: # 2D + time
             for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[0])), 
                                         desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[0]):
+                is_mask_3d = len(self.seg_data.seg_mask.shape) == 3
                 frame_data = self.image_data.intensities_for_analysis[frame]
-                self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
+
+                if is_mask_3d:
+                    self.extract_frame_features(frame_data, self.seg_data.seg_mask[frame_ix,:,:], frame_ix)
+                else:
+                    self.extract_frame_features(frame_data, self.seg_data.seg_mask, frame_ix)
 
         if self.curves_output_path:
             self.save_curves()

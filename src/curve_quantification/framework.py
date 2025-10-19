@@ -57,8 +57,11 @@ class CurveQuantifications:
             self.ordered_funcs.append(function)
             self.ordered_func_names.append(func_name)
 
+        print(self.function_names)
         for function_name in self.function_names:
             process_deps(function_name)
+
+        print(f"Ordered functions: {self.ordered_func_names}")
 
     def compute_quantifications(self):
         """
@@ -81,6 +84,8 @@ class CurveQuantifications:
                     data_dict['Window-Coronal Start Pix'] = curves['Window-Coronal Start Pix']
                     data_dict['Window-Coronal End Pix'] = curves['Window-Coronal End Pix']
 
+            print("IN COMPUTER_QUANTIFICATIONS FUNCTIONS")
+            print(self.ordered_func_names)
             for func in self.ordered_funcs:
                 func(self.analysis_objs, curves, data_dict, **self.kwargs)
 

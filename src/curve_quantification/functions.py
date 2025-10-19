@@ -71,6 +71,7 @@ def first_order_full(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float
     for name, curve in curves.items():
         if not isinstance(curve, Iterable) or isinstance(curve, str):
             continue
+        curve = np.array(curve)
         _compute_firstorder_stats(curve, data_dict, name_prefix='', name_suffix=f'_full_{name}')
 
 @required_kwargs('curves_to_fit', 'start_time', 'end_time')
@@ -130,7 +131,7 @@ def lognormal_fit_full(analysis_objs: CurvesAnalysis, curves: Dict[str, List[flo
             data_dict[f'Sigma_full_{name}'] = sigma
             data_dict[f'PE_Ix_full_{name}'] = pe_loc
 
-@dependencies('lognormal_fit')
+@dependencies('lognormal_fit_full', 'lognormal_fit_select')
 @required_kwargs('tic_name', 'curves_to_fit', 'n_frames_to_analyze')
 def wash_rates(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]], data_dict: dict,  **kwargs) -> None:
     """
@@ -149,7 +150,14 @@ def wash_rates(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]], da
     assert tic_name in curves, f'{tic_name} not found in curves'
     assert tic_name in fitted_curves, f'{tic_name} not found in fitted curves'
 
-    pe_ix = data_dict[f'PE_Ix_{tic_name}']
+    try:
+        pe_ix = data_dict[f'PE_Ix_select_{tic_name}']
+    except KeyError:
+        try:
+            pe_ix = data_dict[f'PE_Ix_full_{tic_name}']
+        except Exception as E: 
+            print(f"Cannot find tic_name {tic_name} in data_dict..\n {data_dict}")
+            raise E
 
     for name, curve in curves.items():
         if not isinstance(curve, Iterable) or isinstance(curve, str):
@@ -195,7 +203,7 @@ def dte(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]], data_dict
             continue
         data_dict[f'DTE_{curve_name}'] = np.median(curve[preflash_ix-4:preflash_ix+1]) - np.median(curve[postflash_ix: postflash_ix+5])
 
-@dependencies('lognormal_fit')
+@dependencies('lognormal_fit_full', 'lognormal_fit_select')
 @required_kwargs('tic_name')
 def cmus_firstorder(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]], data_dict: Dict[str,Any], **kwargs) -> None:
     """
@@ -212,7 +220,16 @@ def cmus_firstorder(analysis_objs: CurvesAnalysis, curves: Dict[str, List[float]
     flash_ix = np.argmax(curves[tic_name])
     preflash_ix = flash_ix - 5 if flash_ix - 5 >= 0 else 0
     postflash_ix = flash_ix + 5 if flash_ix + 5 < len(curves[tic_name]) else len(curves[tic_name]) - 1
-    pe_ix = data_dict[f'PE_Ix_{tic_name}']; pe_ix = max(pe_ix, 0)
+    try:
+        pe_ix = data_dict[f'PE_Ix_select_{tic_name}']
+    except KeyError:
+        try:
+            pe_ix = data_dict[f'PE_Ix_full_{tic_name}']
+        except Exception as E: 
+            print(f"Cannot find tic_name {tic_name} in data_dict..\n {data_dict}")
+            raise E
+    
+    pe_ix = max(pe_ix, 0)
     pe_ix = pe_ix if pe_ix < postflash_ix else postflash_ix - 1
 
     for curve_name, curve in curves.items():

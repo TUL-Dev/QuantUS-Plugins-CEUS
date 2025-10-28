@@ -8,3 +8,8 @@ fixed_wheels/
 .DS_Store
 *.so
 /**/*_ui.py
+demo_paramaps/
+paramaps_LOGNORMAL/
+2d ceus test/paramap demo/
+2d ceus test/*.csv
+*.csv

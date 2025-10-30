@@ -47,10 +47,18 @@ class CurvesAnalysis:
                 frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
 
                 # Extract corresponding frame from mask (if 4D) or use static mask (if 3D)
-                if is_mask_4d:
-                    frame_mask = self.seg_data.seg_mask[:, :, :, frame_ix]
+                # seg_mask is for non motion compensated data
+                # mc_seg_mask is for motion compensated data
+                if self.seg_data.use_mc:
+                    if is_mask_4d:
+                        frame_mask = self.seg_data.mc_seg_mask[:, :, :, frame_ix]
+                    else:
+                        frame_mask = self.seg_data.mc_seg_mask
                 else:
-                    frame_mask = self.seg_data.seg_mask
+                    if is_mask_4d:
+                        frame_mask = self.seg_data.seg_mask[:, :, :, frame_ix]
+                    else:
+                        frame_mask = self.seg_data.seg_mask
                     
                 self.extract_frame_features(frame_data, frame_mask, frame_ix)
 

@@ -3,10 +3,11 @@ import json
 from pathlib import Path
 from scipy.ndimage import shift
 
-from .decorators import required_kwargs
+from ..seg_preprocessing.decorators import required_kwargs
 from ..data_objs.image import UltrasoundImage
 from ..data_objs.seg import CeusSeg
 from ..image_preprocessing.transforms import resample_to_spacing_2d, resample_to_spacing_3d
+from ..seg_preprocessing.motion_compensation_3d import MotionCompensation3D, BoundingBox3D
 
 @required_kwargs('target_vox_size', 'interp')
 def resample(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSeg:
@@ -135,5 +136,140 @@ def apply_motion_compensation(image_data: UltrasoundImage, seg_data: CeusSeg, **
 
     # Update segmentation mask
     seg_data.mc_seg_mask = compensated_mask
+    seg_data.use_mc = True
 
+    return seg_data
+
+# ==================== Integration with QuantUS Pipeline ====================
+@required_kwargs('bmode_image_data')
+def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSeg:
+    """
+    Apply 3D motion compensation using ILSA tracking.
+    
+    Creates seg_data.mc_seg_mask with motion compensation applied.
+    
+    Kwargs:
+        bmode_image_data (UltrasoundImage): B-mode data for motion tracking [REQUIRED]
+        reference_frame (int): Reference frame index (default: 0)
+        search_margin_ratio (float): Search margin ratio (default: 0.5/30)
+        padding (int): Padding around bounding box (default: 5)
+        shift_order (int): Interpolation order for shifting (default: 0 for nearest neighbor)
+    
+    Returns:
+        CeusSeg: Segmentation with mc_seg_mask created
+    """
+    # Extract kwargs
+    bmode_image_data = kwargs['bmode_image_data']
+    reference_frame = kwargs.get('reference_frame', 0)
+    search_margin_ratio = kwargs.get('search_margin_ratio', 0.5 / 30)
+    padding = kwargs.get('padding', 5)
+    shift_order = kwargs.get('shift_order', 0)  # 0=nearest neighbor for masks
+    
+    # Validate inputs
+    if not isinstance(bmode_image_data, UltrasoundImage):
+        raise TypeError("bmode_image_data must be an UltrasoundImage object")
+    
+    bmode_shape = bmode_image_data.pixel_data.shape
+    if bmode_image_data.pixel_data.ndim != 4:
+        raise ValueError(f"B-mode data must be 4D (T, Z, Y, X), got shape {bmode_shape}")
+    
+    reference_mask = seg_data.seg_mask[:,:,:,0]
+    # seg_mask should be (Z, Y, X) - single frame
+    seg_mask_shape = reference_mask.shape
+    if reference_mask.ndim != 3:
+        raise ValueError(f"Segmentation mask must be 3D (Z, Y, X), got shape {seg_mask_shape}")
+    
+    print("\n" + "="*60)
+    print("3D Motion Compensation with ILSA Tracking")
+    print("="*60)
+    
+    # Step 1: Extract bounding box from segmentation
+    print("\nStep 1: Extracting bounding box from segmentation...")
+    try:
+        reference_bbox = BoundingBox3D.from_mask(reference_mask, padding=padding)
+        print(f"  Bounding box: Z=[{reference_bbox.z_min}, {reference_bbox.z_max}], "
+              f"Y=[{reference_bbox.y_min}, {reference_bbox.y_max}], "
+              f"X=[{reference_bbox.x_min}, {reference_bbox.x_max}]")
+        print(f"  Center: {reference_bbox.center}")
+    except ValueError as e:
+        print(f"Error: {e}")
+        return seg_data
+    
+    # Step 2: Track motion using ILSA
+    print("\nStep 2: Tracking motion using ILSA...")
+    print(f"  Reference frame: {reference_frame}")
+    print(f"  Search margin ratio: {search_margin_ratio}")
+    
+    mc = MotionCompensation3D(search_margin_ratio=search_margin_ratio)
+    
+    # Track motion - volumes are (T, Z, Y, X)
+    tracked_bboxes, correlations = mc.track_motion_ilsa_3d(
+        bmode_image_data.pixel_data,
+        reference_frame,
+        reference_bbox
+    )
+    
+    # Step 3: Apply motion compensation to create mc_seg_mask
+    print("\nStep 3: Applying motion compensation to segmentation...")
+    n_frames = bmode_shape[-1]
+    
+    # Create mc_seg_mask with shape (Z, Y, X, T)
+    mc_seg_mask = np.zeros((*seg_mask_shape, n_frames), dtype=seg_data.seg_mask.dtype)
+    
+    # Get reference center
+    ref_center = reference_bbox.center
+    
+    for frame_idx in range(n_frames):
+        bbox = tracked_bboxes[frame_idx]
+        
+        # Calculate shift from reference
+        curr_center = bbox.center
+        shift_z = curr_center[0] - ref_center[0]
+        shift_y = curr_center[1] - ref_center[1]
+        shift_x = curr_center[2] - ref_center[2]
+        
+        # Apply shift to segmentation (shift in opposite direction to compensate)
+        # Note: seg_mask is (Z, Y, X), so shift vector is [z, y, x]
+        shifted_mask = shift(
+            seg_data.seg_mask[...,frame_idx],
+            shift=[shift_z, shift_y, shift_x],  # Negative to compensate
+            order=shift_order,
+            cval=0,
+            prefilter=True if shift_order > 0 else False
+        )
+        
+        # Store in mc_seg_mask - last dimension is time
+        mc_seg_mask[..., frame_idx] = shifted_mask
+        
+        if frame_idx % 10 == 0 or frame_idx == n_frames - 1:
+            print(f"  Frame {frame_idx}: shift=({shift_z:.1f}, {shift_y:.1f}, {shift_x:.1f}), "
+                  f"corr={correlations[frame_idx]:.3f}")
+    
+    # Store results
+    seg_data.mc_seg_mask = mc_seg_mask
+    seg_data.use_mc = True
+    
+    # Store motion info in extras_dict
+    image_data.extras_dict['motion_compensation'] = {
+        'applied': True,
+        'reference_frame': reference_frame,
+        'mean_correlation': float(np.mean(correlations)),
+        'min_correlation': float(np.min(correlations)),
+        'bboxes': [
+            {
+                'z_min': bbox.z_min, 'z_max': bbox.z_max,
+                'y_min': bbox.y_min, 'y_max': bbox.y_max,
+                'x_min': bbox.x_min, 'x_max': bbox.x_max,
+                'center': bbox.center
+            } for bbox in tracked_bboxes
+        ],
+        'correlations': [float(c) for c in correlations]
+    }
+    
+    print("\n" + "="*60)
+    print("Motion Compensation Complete!")
+    print(f"  mc_seg_mask shape: {mc_seg_mask.shape}")
+    print(f"  Mean correlation: {np.mean(correlations):.3f}")
+    print("="*60 + "\n")
+    
     return seg_data

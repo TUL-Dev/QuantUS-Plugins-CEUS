@@ -329,30 +329,34 @@ class CurvesParamapAnalysis(CurvesAnalysis):
 
             if save_path is not None:
                 fig.canvas.draw()
-                frame_rgb = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-                frame_rgb = frame_rgb.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-                captured_frames.append(frame_rgb)
+                if hasattr(fig.canvas, "buffer_rgba"):
+                    rgba = np.asarray(fig.canvas.buffer_rgba(), dtype=np.uint8)
+                    frame_rgb = rgba[..., :3]
+                else:
+                    frame_rgb = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                    frame_rgb = frame_rgb.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                captured_frames.append(frame_rgb.copy())
 
             if ipy_display and ipy_clear:
                 ipy_clear(wait=True)
                 ipy_display(fig)
-                plt.pause(pause_time)
+                plt.pause(0.001)
 
             plt.close(fig)
 
-        if save_path is not None and captured_frames:
-            try:
-                import imageio.v3 as iio
+        # if save_path is not None and captured_frames:
+        #     try:
+        #         import imageio.v3 as iio
 
-                output_ext = Path(save_path).suffix.lower()
-                if output_ext in {".gif"}:
-                    iio.imwrite(save_path, captured_frames, duration=1 / max(fps, 1))
-                else:
-                    iio.imwrite(save_path, captured_frames, fps=fps)
-            except ImportError as exc:
-                raise ImportError(
-                    "Saving the verification animation requires imageio. Install it or omit save_path."
-                ) from exc
+        #         output_ext = Path(save_path).suffix.lower()
+        #         if output_ext in {".gif"}:
+        #             iio.imwrite(save_path, captured_frames, duration=1 / max(fps, 1))
+        #         else:
+        #             iio.imwrite(save_path, captured_frames, fps=fps)
+        #     except ImportError as exc:
+        #         raise ImportError(
+        #             "Saving the verification animation requires imageio. Install it or omit save_path."
+        #         ) from exc
 
         stats_df = pd.DataFrame(window_stats)
         return stats_df

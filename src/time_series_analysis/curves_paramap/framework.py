@@ -177,6 +177,8 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                 if name not in self.curves[window_ix]:
                     self.curves[window_ix][name] = []
                     self.curves[window_ix][name].append(val)
+                elif frame_ix > 0:
+                    self.curves[window_ix][name].append(val)
 
     def verify_motion_compensated_windows(
         self,

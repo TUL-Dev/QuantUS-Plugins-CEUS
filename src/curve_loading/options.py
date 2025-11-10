@@ -10,5 +10,5 @@ def get_curves_loaders() -> dict:
     Returns:
         dict: Dictionary of curve loaders.
     """
-    functions = {name: obj for name, obj in globals().items() if callable(obj) and obj.__module__ == 'src.curve_loading.functions'}
+    functions = {name: obj for name, obj in globals().items() if callable(obj) and obj.__module__ == __package__ + '.functions'}
     return functions

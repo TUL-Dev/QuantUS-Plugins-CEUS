@@ -26,7 +26,7 @@ def get_scan_loaders() -> dict:
         if folder.is_dir() and not folder.name.startswith("_"):
             try:
                 # Attempt to import the module
-                module = importlib.import_module(f"src.image_loading.{folder.name}.main")
+                module = importlib.import_module(__package__ + f".{folder.name}.main")
                 entry_class = getattr(module, "EntryClass", None)
                 if entry_class:
                     classes[folder.name] = {}

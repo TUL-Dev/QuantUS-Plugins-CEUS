@@ -16,7 +16,7 @@ def get_seg_preproc_funcs() -> dict:
     Returns:
         dict: Dictionary of preprocessing functions.
     """
-    functions = {name: obj for name, obj in globals().items() if callable(obj) and obj.__module__ == 'src.seg_preprocessing.functions'}
+    functions = {name: obj for name, obj in globals().items() if callable(obj) and obj.__module__ == __package__ + '.functions'}
     return functions
 
 def get_required_seg_preproc_kwargs(preproc_func_names: list) -> list:

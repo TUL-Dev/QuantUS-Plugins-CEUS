@@ -4,15 +4,15 @@ import yaml
 import argparse
 from pathlib import Path
 
-from src.image_loading.options import get_scan_loaders, scan_loader_args
-from src.image_preprocessing.options import get_im_preproc_funcs, get_required_im_preproc_kwargs
-from src.seg_loading.options import get_seg_loaders, seg_loader_args
-from src.seg_preprocessing.options import get_seg_preproc_funcs, get_required_seg_preproc_kwargs
-from src.time_series_analysis.options import get_analysis_types, analysis_args
-from src.curve_loading.options import get_curves_loaders
-from src.curve_quantification.options import get_quantification_funcs
-from src.curve_quantification.framework import CurveQuantifications
-from src.visualizations.options import get_visualization_types
+from .image_loading.options import get_scan_loaders, scan_loader_args
+from .image_preprocessing.options import get_im_preproc_funcs, get_required_im_preproc_kwargs
+from .seg_loading.options import get_seg_loaders, seg_loader_args
+from .seg_preprocessing.options import get_seg_preproc_funcs, get_required_seg_preproc_kwargs
+from .time_series_analysis.options import get_analysis_types, analysis_args
+from .curve_loading.options import get_curves_loaders
+from .curve_quantification.options import get_quantification_funcs
+from .curve_quantification.framework import CurveQuantifications
+from .visualizations.options import get_visualization_types
 
 DESCRIPTION = """
 QuantUS | Custom US Analysis Workflows

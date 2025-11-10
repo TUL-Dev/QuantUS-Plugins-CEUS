@@ -3,18 +3,18 @@ import os
 
 import numpy as np
 
-from src.data_objs import UltrasoundImage, CeusSeg
-from src.image_loading.options import get_scan_loaders
-from src.image_preprocessing.options import get_im_preproc_funcs, get_required_im_preproc_kwargs
-from src.seg_loading.options import get_seg_loaders
-from src.seg_preprocessing.options import get_seg_preproc_funcs, get_required_seg_preproc_kwargs
-from src.time_series_analysis.options import get_analysis_types, get_required_kwargs
-from src.time_series_analysis.curves.framework import CurvesAnalysis
-from src.curve_loading.options import get_curves_loaders
-from src.curve_quantification.framework import CurveQuantifications
-from src.curve_quantification.options import get_quantification_funcs
-from src.visualizations.paramap.framework import ParamapVisualizations
-from src.visualizations.options import get_visualization_types
+from .data_objs import UltrasoundImage, CeusSeg
+from .image_loading.options import get_scan_loaders
+from .image_preprocessing.options import get_im_preproc_funcs, get_required_im_preproc_kwargs
+from .seg_loading.options import get_seg_loaders
+from .seg_preprocessing.options import get_seg_preproc_funcs, get_required_seg_preproc_kwargs
+from .time_series_analysis.options import get_analysis_types, get_required_kwargs
+from .time_series_analysis.curves.framework import CurvesAnalysis
+from .curve_loading.options import get_curves_loaders
+from .curve_quantification.framework import CurveQuantifications
+from .curve_quantification.options import get_quantification_funcs
+from .visualizations.options import get_visualization_types
+from .visualizations.paramap.framework import ParamapVisualizations
 
 def scan_loading_step(scan_type: str, scan_path: str, **scan_loader_kwargs) -> UltrasoundImage:
     """Load the scan data using the specified scan loader.

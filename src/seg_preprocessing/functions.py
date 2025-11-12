@@ -195,13 +195,13 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
         print(f"Error: {e}")
         return seg_data
     
-    # Step 2: Track motion using ILSA
-    print("\nStep 2: Tracking motion using ILSA...")
+    # Step 2: Track motion using forward and backward correlation
+    print("\nStep 2: Tracking motion using forward and backward correlation...")
     print(f"  Reference frame: {reference_frame}")
     print(f"  Search margin ratio: {search_margin_ratio}")
-    
+
     mc = MotionCompensation3D(search_margin_ratio=search_margin_ratio)
-    
+
     # Track motion - volumes are (T, Z, Y, X)
     tracked_bboxes, correlations = mc.track_motion_ilsa_3d(
         bmode_image_data.pixel_data,

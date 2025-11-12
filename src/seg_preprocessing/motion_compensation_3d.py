@@ -187,12 +187,11 @@ class MotionCompensation3D:
         correlations = [0.0] * n_frames
         tracking_sources = [''] * n_frames
         
+        # Set reference frame
         tracked_bboxes[reference_frame_idx] = reference_bbox
         correlations[reference_frame_idx] = 1.0
         tracking_sources[reference_frame_idx] = 'reference'
         
-        print("Tracking forward...")
-        # Forward tracking
         for frame_idx in range(reference_frame_idx + 1, n_frames):
             prev_bbox = tracked_bboxes[frame_idx - 1]
             search_bbox = prev_bbox.expand(search_margin)
@@ -208,48 +207,56 @@ class MotionCompensation3D:
                 volumes[...,frame_idx:frame_idx+1], prev_voi, search_bbox
             )
             
-            # Pick better correlation
-            if max_corr_ref[0] >= max_corr_prev[0]:
-                dz, dy, dx = self.find_optimal_translation(corr_map_ref[0], search_bbox, reference_bbox)
-                tracked_bboxes[frame_idx] = reference_bbox.translate(dz, dy, dx)
-                correlations[frame_idx] = max_corr_ref[0]
-                tracking_sources[frame_idx] = 'reference'
-            else:
-                dz, dy, dx = self.find_optimal_translation(corr_map_prev[0], search_bbox, prev_bbox)
-                tracked_bboxes[frame_idx] = prev_bbox.translate(dz, dy, dx)
-                correlations[frame_idx] = max_corr_prev[0]
-                tracking_sources[frame_idx] = 'previous'
-        
-        print("Tracking backward...")
-        # Backward tracking
-        for frame_idx in range(reference_frame_idx - 1, -1, -1):
-            next_bbox = tracked_bboxes[frame_idx + 1]
-            search_bbox = next_bbox.expand(search_margin)
-            
-            # Try reference frame
-            corr_map_ref, max_corr_ref = self.compute_3d_correlation_vectorized(
-                volumes[...,frame_idx:frame_idx+1], ref_voi, search_bbox
+            # Pick whichever has better correlation
+            # if max_corr_ref[0] >= max_corr_prev[0]:
+            dz, dy, dx = self.find_optimal_translation(
+                corr_map_ref[0], search_bbox, reference_bbox
             )
-            
-            # Try next frame
-            next_voi = next_bbox.extract_from_volume(volumes[..., frame_idx + 1])
-            corr_map_next, max_corr_next = self.compute_3d_correlation_vectorized(
-                volumes[...,frame_idx:frame_idx+1], next_voi, search_bbox
-            )
-            
-            # Pick better correlation
-            if max_corr_ref[0] >= max_corr_next[0]:
-                dz, dy, dx = self.find_optimal_translation(corr_map_ref[0], search_bbox, reference_bbox)
-                tracked_bboxes[frame_idx] = reference_bbox.translate(dz, dy, dx)
-                correlations[frame_idx] = max_corr_ref[0]
-                tracking_sources[frame_idx] = 'reference'
-            else:
-                dz, dy, dx = self.find_optimal_translation(corr_map_next[0], search_bbox, next_bbox)
-                tracked_bboxes[frame_idx] = next_bbox.translate(dz, dy, dx)
-                correlations[frame_idx] = max_corr_next[0]
-                tracking_sources[frame_idx] = 'next'
+            tracked_bboxes[frame_idx] = reference_bbox.translate(dz, dy, dx)
+            correlations[frame_idx] = max_corr_ref[0]
+            tracking_sources[frame_idx] = 'reference'
+            # else:
+            #     dz, dy, dx = self.find_optimal_translation(
+            #         corr_map_prev[0], search_bbox, prev_bbox
+            #     )
+            #     tracked_bboxes[frame_idx] = prev_bbox.translate(dz, dy, dx)
+            #     correlations[frame_idx] = max_corr_prev[0]
+            #     tracking_sources[frame_idx] = 'previous'
         
-        # Print stats
+        # print("Tracking backward...")
+        # # === BACKWARD TRACKING ===
+        # for frame_idx in range(reference_frame_idx - 1, -1, -1):
+        #     next_bbox = tracked_bboxes[frame_idx + 1]
+        #     search_bbox = next_bbox.expand(search_margin)
+            
+        #     # Try reference frame
+        #     corr_map_ref, max_corr_ref = self.compute_3d_correlation_vectorized(
+        #         volumes[...,frame_idx:frame_idx+1], ref_voi, search_bbox
+        #     )
+            
+        #     # Try next frame
+        #     next_voi = next_bbox.extract_from_volume(volumes[..., frame_idx + 1])
+        #     corr_map_next, max_corr_next = self.compute_3d_correlation_vectorized(
+        #         volumes[...,frame_idx:frame_idx+1], next_voi, search_bbox
+        #     )
+            
+        #     # Pick whichever has better correlation
+        #     if max_corr_ref[0] >= max_corr_next[0]:
+        #         dz, dy, dx = self.find_optimal_translation(
+        #             corr_map_ref[0], search_bbox, reference_bbox
+        #         )
+        #         tracked_bboxes[frame_idx] = reference_bbox.translate(dz, dy, dx)
+        #         correlations[frame_idx] = max_corr_ref[0]
+        #         tracking_sources[frame_idx] = 'reference'
+        #     else:
+        #         dz, dy, dx = self.find_optimal_translation(
+        #             corr_map_next[0], search_bbox, next_bbox
+        #         )
+        #         tracked_bboxes[frame_idx] = next_bbox.translate(dz, dy, dx)
+        #         correlations[frame_idx] = max_corr_next[0]
+        #         tracking_sources[frame_idx] = 'next'
+        
+        # === PRINT STATS ===
         source_counts = Counter(tracking_sources)
         print(f"\nTracking complete!")
         print(f"  Sources: {dict(source_counts)}")

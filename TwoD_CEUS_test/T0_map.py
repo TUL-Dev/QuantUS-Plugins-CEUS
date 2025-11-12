@@ -62,7 +62,7 @@ def _normalize_seg_mask(seg_mask: np.ndarray, height: int, width: int, n_frames:
 
     raise ValueError(f"Unsupported segmentation mask shape {seg_mask.shape}")
 
-def generate_t0_map(pixel_data, seg_mask, threshold=150, start_frame=50, end_frame=250):
+def generate_t0_map(pixel_data, seg_mask, threshold=150, start_frame=50, end_frame=250, min_consecutive_frames=1):
     """
     Generate T0 map showing when pixels first reach threshold intensity.
 
@@ -84,6 +84,10 @@ def generate_t0_map(pixel_data, seg_mask, threshold=150, start_frame=50, end_fra
         First frame to analyze (default: 50)
     end_frame : int, optional
         Last frame to analyze (default: 250)
+    min_consecutive_frames : int, optional
+        Minimum number of consecutive frames a pixel must be above threshold
+        to be considered truly enhanced (default: 1). Higher values (e.g., 3)
+        help filter out noise and spurious detections.
 
     Returns
     -------
@@ -96,7 +100,8 @@ def generate_t0_map(pixel_data, seg_mask, threshold=150, start_frame=50, end_fra
     Examples
     --------
     >>> t0_map = generate_t0_map(image_data.pixel_data, seg_data.seg_mask,
-    ...                          threshold=150, start_frame=50, end_frame=250)
+    ...                          threshold=150, start_frame=50, end_frame=250,
+    ...                          min_consecutive_frames=3)
     """
     n_frames, height, width = pixel_data.shape
 
@@ -111,19 +116,31 @@ def generate_t0_map(pixel_data, seg_mask, threshold=150, start_frame=50, end_fra
     # Prepare per-frame ROI masks (handles 2D or motion-compensated 3D masks)
     per_frame_mask, _ = _normalize_seg_mask(seg_mask, height, width, n_frames=n_frames)
 
+    # Track consecutive frames above threshold for each pixel
+    consecutive_count = np.zeros((height, width), dtype=np.int32)
+
     # Loop through frames from start to end
     for i in range(start_frame, end_frame):
         # Get current frame
         current_frame = pixel_data[i, :, :]
         frame_mask = per_frame_mask[i]
 
-        # Find pixels in ROI that exceed threshold AND haven't been assigned yet
-        # (t0_map == 0 means pixel hasn't been detected yet)
-        newly_detected = (current_frame >= threshold) & frame_mask & (t0_map == 0)
+        # Check which pixels in ROI exceed threshold
+        above_threshold = (current_frame >= threshold) & frame_mask
+
+        # Update consecutive count: increment if above threshold, reset if not
+        consecutive_count = np.where(above_threshold, consecutive_count + 1, 0)
+
+        # Find pixels that just reached min_consecutive_frames AND haven't been assigned yet
+        newly_detected = (consecutive_count == min_consecutive_frames) & (t0_map == 0)
 
         # Assign reverse time index: earlier frames get higher values
-        # This makes early activation appear brighter
-        t0_map[newly_detected] = end_frame - i
+        # Use the frame when it first crossed (i - min_consecutive_frames + 1)
+        if min_consecutive_frames > 1:
+            first_cross_frame = i - min_consecutive_frames + 1
+            t0_map[newly_detected] = end_frame - first_cross_frame
+        else:
+            t0_map[newly_detected] = end_frame - i
 
     return t0_map
 

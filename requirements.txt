@@ -24,7 +24,7 @@ psutil==7.0.0
 pure_eval==0.2.3
 pydicom
 Pygments==2.19.1
-pyradiomics==3.0.1
+# pyradiomics==3.0.1
 python-dateutil==2.9.0.post0
 pyqtdarktheme
 PyQt6==6.7.1

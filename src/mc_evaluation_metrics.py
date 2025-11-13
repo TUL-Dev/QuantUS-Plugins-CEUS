@@ -172,7 +172,7 @@ def plot_voi_bmode_similarity_comparison(results, output_path=None):
     metrics = ['correlation', 'ssim']
     metric_names = ['Pearson Correlation', 'SSIM']
     
-    fig, axes = plt.subplots(1, 3, figsize=(14, 10))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 6))
     axes = axes.flatten()
     
     n_frames = len(results['with_mc']['correlation'])

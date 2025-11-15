@@ -69,12 +69,7 @@ Python entrypoints to the complete workflow are ideal for supporting batch proce
 
 3. **Graphical user interface (GUI) (under development)**
 
-The end goal here is to support this entire customizable workflow through a GUI. Currently, scan loading and manual segmentation drawing are the only features supported here. The GUI is accessible using
-
-```bash
-# Using .venv virtual environment
-python src/gui/run.py
-```
+The end goal here is to support this entire customizable workflow through a GUI. Currently, scan loading and manual segmentation drawing are the only features supported here. The GUI is accessible using the QuantUS repository.
 
 4. **Parametric Map Viewing**
 
@@ -103,7 +98,6 @@ src/
 ├── curve_loading/          # Loading previously computed curves
 ├── curve_quantification/   # Curve quantification methods (plugins)
 ├── visualizations/         # Visualization methods (plugins)
-├── gui/                    # Qt-based GUI (MVC architecture)
 ├── processing/             # Example processing pipelines for batch processing
 ├── entrypoints.py          # Entrypoints for individual workflow steps
 └── full_workflow.py        # CLI interfaces and entrypoints for entire workflow

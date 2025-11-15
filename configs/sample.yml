@@ -2,7 +2,7 @@
 scan_loader: custom_dicom
 
 # Screen 2: Scan inputs
-scan_path: /home/das/Downloads/DICOM Sample 3/
+scan_path: PATH/TO/YOUR/SCAN_DIRECTORY/
 scan_loader_kwargs:
   transpose: False
 
@@ -11,7 +11,7 @@ scan_preproc_funcs:
 scan_preproc_kwargs:
 
 # Screen 4: Segmentation (either drawing or saved)
-seg_path: /home/das/Downloads/DICOM Sample 3/demo_seg.nii.gz
+seg_path: PATH/TO/YOUR/SEGMENTATION.nii.gz
 seg_loader: nifti
 seg_loader_kwargs:
 
@@ -26,14 +26,10 @@ analysis_kwargs:
   binwidth: 25 
   min_intensity: 0
   pyradiomics_config_paths:
-    - /Users/davidspector/Home/Stanford/QuantUS Projects/QuantUS-Plugins-CEUS/configs/pyradiomics/moderate.yml
+    - PATH/TO/YOUR/PYRADIOMICS_CONFIG.yml
 analysis_funcs:
   - tic
+  - pyradiomics
 
-# Step 7 curve quantification
-curve_quant_output_path: TIC_RESULTS.csv 
-curve_quant_funcs:
-  - lognormal_fit_full
-curve_quant_kwargs:
-  curves_to_fit:
-    - TIC
+# Step 7: Curve quantification
+# Can be blank. See other sample config for sample quantification functions.

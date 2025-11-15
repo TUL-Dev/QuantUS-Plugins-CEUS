@@ -74,7 +74,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Source" = "https://github.com/TUL-Dev/QuantUS-Plugins"
+"Source" = "https://github.com/TUL-Dev/QuantUS-Plugins-CEUS"
 
 [project.scripts]
 quantceus = "src.full_workflow:main_yaml"

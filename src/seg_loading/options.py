@@ -17,5 +17,5 @@ def get_seg_loaders() -> dict:
     Returns:
         dict: Dictionary of scan loaders.
     """
-    functions = {name: obj for name, obj in globals().items() if callable(obj) and obj.__module__ == 'src.seg_loading.functions'}
+    functions = {name: obj for name, obj in globals().items() if callable(obj) and obj.__module__ == __package__ + '.functions'}
     return functions

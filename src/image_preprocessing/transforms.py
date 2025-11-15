@@ -63,7 +63,7 @@ def resample_to_spacing_3d(image_arr: np.ndarray, original_spacing: Tuple[float,
     """Resample to isotropic/anisotropic spacing by recomputing size.
     Maintains image FOV; origin/direction preserved.
     """
-    assert image_arr.ndim == 4, "Image array must be 4D (x, y, z, t)."
+    assert image_arr.ndim in (3, 4), "Image array must be 3D (x, y, z) or 4D (x, y, z, t)."
 
     affine = np.eye(4)
     reversed_dims = list(reversed(original_spacing)) # Ensure spacing is in (z, y, x) order for SimpleITK

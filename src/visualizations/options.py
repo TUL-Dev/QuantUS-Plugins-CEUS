@@ -29,7 +29,7 @@ def get_visualization_types() -> Tuple[dict, dict]:
             try:
                 # Attempt to import the module
                 module = importlib.import_module(
-                    f"src.visualizations.{folder.name}.framework"
+                    __package__ + f".{folder.name}.framework"
                 )
                 entry_class = getattr(module, f"{folder.name.capitalize()}Visualizations", None)
                 if entry_class:
@@ -42,10 +42,10 @@ def get_visualization_types() -> Tuple[dict, dict]:
     functions = {}
     for type_name, type_class in types.items():
         try:
-            module = importlib.import_module(f'src.visualizations.{type_name}.functions')
+            module = importlib.import_module(__package__ + f'.{type_name}.functions')
             for name, obj in vars(module).items():
                 try:
-                    if callable(obj) and obj.__module__ == f'src.visualizations.{type_name}.functions':
+                    if callable(obj) and obj.__module__ == __package__ + f'.{type_name}.functions':
                         functions[type_name] = functions.get(type_name, {})
                         functions[type_name][name] = obj
                 except (TypeError, KeyError):

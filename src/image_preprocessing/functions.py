@@ -46,7 +46,7 @@ def resample(image_data: UltrasoundImage, **kwargs) -> UltrasoundImage:
     interp = kwargs['interp']
 
     if image_data.intensities_for_analysis.ndim == 4:
-        image_data.pixel_data = resample_to_spacing_2d(image_data.pixel_data, image_data.pixdim, target_vox_size, interp=interp)
+        image_data.pixel_data = resample_to_spacing_3d(image_data.pixel_data, image_data.pixdim, target_vox_size, interp=interp)
         image_data.intensities_for_analysis = resample_to_spacing_3d(image_data.intensities_for_analysis, image_data.pixdim, target_vox_size, interp=interp)
     elif image_data.intensities_for_analysis.ndim == 3:
         image_data.pixel_data = resample_to_spacing_2d(image_data.pixel_data, image_data.pixdim, target_vox_size, interp=interp)

@@ -8,7 +8,7 @@ def get_quantification_funcs() -> Dict[str, callable]:
         dict: Dictionary of quantification functions.
     """
     functions = {}
-    module = importlib.import_module(f'src.curve_quantification.functions')
+    module = importlib.import_module(__package__ + '.functions')
     module_file = module.__file__
     defined_funcs = set()
     for name, obj in inspect.getmembers(module, inspect.isfunction):

@@ -47,7 +47,7 @@ def get_analysis_types() -> Tuple[dict, dict]:
             try:
                 # Attempt to import the module
                 module = importlib.import_module(
-                    f"src.time_series_analysis.{folder.name}.framework"
+                    __package__ + f".{folder.name}.framework"
                 )
                 entry_class_name = ''.join(word.capitalize() for word in folder.name.split('_')) + "Analysis"
                 entry_class = getattr(module, entry_class_name, None)
@@ -58,7 +58,7 @@ def get_analysis_types() -> Tuple[dict, dict]:
                 # Handle the case where the module cannot be found
                 pass
             
-    module = importlib.import_module(f'src.time_series_analysis.curve_types.functions')
+    module = importlib.import_module(__package__ + '.curve_types.functions')
     module_file = module.__file__
     defined_funcs = set()
     for name, obj in inspect.getmembers(module, inspect.isfunction):

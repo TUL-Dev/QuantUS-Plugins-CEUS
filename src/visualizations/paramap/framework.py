@@ -1,16 +1,18 @@
+import logging
 from pathlib import Path
 from typing import List
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
-from ...data_objs.visualizations import ParamapDrawingBase
 from ...curve_quantification.framework import CurveQuantifications
+from ...data_objs.visualizations import ParamapDrawingBase
 from ...time_series_analysis.curves_paramap.framework import CurvesParamapAnalysis
 from .functions import *
 
 class_name = "ParamapVisualizations"
+LOGGER = logging.getLogger(__name__)
 
 class ParamapVisualizations(ParamapDrawingBase):
     """
@@ -30,10 +32,11 @@ class ParamapVisualizations(ParamapDrawingBase):
         self.quants_obj = quants_obj
         self.results_df = pd.DataFrame(quants_obj.data_dict)
         self.custom_funcs = custom_funcs
-        self.kwargs = kwargs
         self.numerical_paramaps = []
         self.colored_paramaps = []
         self.paramap_names = []
+        self.export_raw_arrays = kwargs.get("export_raw_arrays", True)
+        self.kwargs = {k: v for k, v in kwargs.items() if k != "export_raw_arrays"}
 
         if not self.params:
             if hasattr(self.quants_obj.analysis_objs, 'cor_vox_len'):
@@ -158,13 +161,21 @@ class ParamapVisualizations(ParamapDrawingBase):
         paramap_folder_path = Path(self.paramap_folder_path)
         paramap_folder_path.mkdir(parents=True, exist_ok=True)
         
-        im = self.quants_obj.analysis_objs.image_data.pixel_data
-        seg = self.quants_obj.analysis_objs.seg_data.seg_mask
-        pixdim = self.quants_obj.analysis_objs.image_data.pixdim
+        if self.export_raw_arrays:
+            im = self.quants_obj.analysis_objs.image_data.pixel_data
+            seg = self.quants_obj.analysis_objs.seg_data.seg_mask
+            pixdim = self.quants_obj.analysis_objs.image_data.pixdim
 
-        np.save(paramap_folder_path / 'image.npy', im)
-        np.save(paramap_folder_path / 'segmentation.npy', seg)
-        np.save(paramap_folder_path / 'pix_dims.npy', pixdim)
+            try:
+                np.save(paramap_folder_path / "image.npy", im)
+                np.save(paramap_folder_path / "segmentation.npy", seg)
+                np.save(paramap_folder_path / "pix_dims.npy", pixdim)
+            except OSError as exc:
+                LOGGER.warning(
+                    "Failed to save raw visualization arrays to %s: %s",
+                    paramap_folder_path,
+                    exc,
+                )
 
         # Save parametric maps
         for numerical_paramap, colored_paramap, param in zip(self.numerical_paramaps, self.colored_paramaps, self.paramap_names):

@@ -188,8 +188,8 @@ class PhilipsVolumeReconstructor:
             x_loc, y_loc, z_loc: Coordinate vectors
         """
         # Create Cartesian grid
-        pix_size_x = 1 / (img_size[0] * 2 - 1)  # Lateral
-        pix_size_y = 1 / (img_size[1] - 1)      # Elevation
+        pix_size_x = 1 / (img_size[0] * 4 - 1)  # Lateral
+        pix_size_y = 1 / (img_size[1] * 4 - 1)      # Elevation
         pix_size_z = 1 / (img_size[2] * 4 - 1)  # Axial Depth
         
         x_loc = (np.arange(0, 1 + pix_size_x, pix_size_x) - 0.5) * fov_size[0]
@@ -474,13 +474,19 @@ def sip_parser(data_folder, dest_folder, sip_filename, n_procs, pix_per_mm):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Philips SIP Volume Parser')
-    parser.add_argument('dataFolder', type=str, help='Parent folder of file to parse')
-    parser.add_argument('destFolder', type=str, help='Destination folder of outputs')
-    parser.add_argument('sipFilename', type=str, help='Name of file to parse')
-    parser.add_argument('nProcs', type=int, help='Number of processes for parsing')
-    parser.add_argument('pixPerMm', type=float, help='Resolution of output volumes')
+    # parser = argparse.ArgumentParser(description='Philips SIP Volume Parser')
+    # parser.add_argument('dataFolder', type=str, help='Parent folder of file to parse')
+    # parser.add_argument('destFolder', type=str, help='Destination folder of outputs')
+    # parser.add_argument('sipFilename', type=str, help='Name of file to parse')
+    # parser.add_argument('nProcs', type=int, help='Number of processes for parsing')
+    # parser.add_argument('pixPerMm', type=float, help='Resolution of output volumes')
     
-    args = parser.parse_args()
+    # args = parser.parse_args()
+
+    dataFolder = "/home/yuanshanwu/Documents/TUL/CEUS-Studies/P03/V03"
+    destFolder = "/home/yuanshanwu/Documents/TUL/CEUS-Studies/P03/V03/NewInterpolation"
+    sipFilename = "UCSD-P03-V03-CE1_10.37.08_mf_sip_capture_50_2_1_0.raw"
+    nProcs = 2
+    pixPerMm = 1.2
     
-    sip_parser(args.dataFolder, args.destFolder, args.sipFilename, args.nProcs, args.pixPerMm)
+    sip_parser(dataFolder, destFolder, sipFilename, nProcs, pixPerMm)

@@ -45,9 +45,9 @@ class SipVolDataStruct():
         self.nLinVol: np.ndarray
 
 def scanConvert3Va(rxLines, lineAngles, planeAngles, beamDist, imgSize, fovSize, z0):
-    pixSizeX = 1/(imgSize[0]-1)
-    pixSizeY = 1/(imgSize[1]-1)
-    pixSizeZ = 1/(imgSize[2]-1)
+    pixSizeX = 1/(imgSize[0]*4-1)
+    pixSizeY = 1/(imgSize[1]*4-1)
+    pixSizeZ = 1/(imgSize[2]*4-1)
 
     # Create Cartesian grid and convert to polar coordinates
     xLoc = (np.arange(0,1+(pixSizeX/2),pixSizeX)-0.5)*fovSize[0]
@@ -380,26 +380,32 @@ def sipParser(dataFolder, destFolder, sipFilename, nProcs, pixPerMm):
         pickle.dump(ceusRes, resFile)
 
 if __name__ == "__main__":  # confirms that the code is under main function
-    parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('dataFolder', metavar='FOLDER', type=str, nargs=1,
-                        help='parent folder of file to parse')
-    parser.add_argument('destFolder', metavar='DEST', type=str, nargs=1,
-                        help='destination folder of outputs')
-    parser.add_argument('sipFilename', metavar='FILE', type=str, nargs=1,
-                        help='name of file to parse')
-    parser.add_argument('nProcs', metavar='PROCS', type=int, nargs=1,
-                        help='number of processes for parsing')
-    parser.add_argument('pixPerMm', metavar='RES', type=float, nargs=1,
-                        help='resolution of output volumes')
+    # parser = argparse.ArgumentParser(description='Process some integers.')
+    # parser.add_argument('dataFolder', metavar='FOLDER', type=str, nargs=1,
+    #                     help='parent folder of file to parse')
+    # parser.add_argument('destFolder', metavar='DEST', type=str, nargs=1,
+    #                     help='destination folder of outputs')
+    # parser.add_argument('sipFilename', metavar='FILE', type=str, nargs=1,
+    #                     help='name of file to parse')
+    # parser.add_argument('nProcs', metavar='PROCS', type=int, nargs=1,
+    #                     help='number of processes for parsing')
+    # parser.add_argument('pixPerMm', metavar='RES', type=float, nargs=1,
+    #                     help='resolution of output volumes')
 
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
-    dataFolder = args.dataFolder[0] #"/Users/davidspector/Downloads/wei_test"
-    destFolder = args.destFolder[0]
-    sipFilename = args.sipFilename[0] #"SHC-PTEST001-V02-CE01_16.05.52_mf_sip_capture_50_2_1_0.raw"
-    nProcs = args.nProcs[0] #4
-    pixPerMm = args.pixPerMm[0] #1.2
+    # dataFolder = args.dataFolder[0] #"/Users/davidspector/Downloads/wei_test"
+    # destFolder = args.destFolder[0]
+    # sipFilename = args.sipFilename[0] #"SHC-PTEST001-V02-CE01_16.05.52_mf_sip_capture_50_2_1_0.raw"
+    # nProcs = args.nProcs[0] #4
+    # pixPerMm = args.pixPerMm[0] #1.2
+
+    dataFolder = "/home/yuanshanwu/Documents/TUL/CEUS-Studies/P03/V03"
+    destFolder = "/home/yuanshanwu/Documents/TUL/CEUS-Studies/P03/V03/NewInterpolation"
+    sipFilename = "UCSD-P03-V03-CE1_10.37.08_mf_sip_capture_50_2_1_0.raw"
+    nProcs = 2
+    pixPerMm = 1.2
     procs = []
     Example = Philips4dParser()
     volDestPath = Example.prepVolRead(dataFolder, sipFilename, destFolder, pixPerMm)

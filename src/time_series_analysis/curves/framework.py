@@ -43,22 +43,13 @@ class CurvesAnalysis:
             for frame_ix, frame in tqdm(enumerate(range(self.image_data.intensities_for_analysis.shape[3])), 
                                         desc="Computing curves", total=self.image_data.intensities_for_analysis.shape[3]):
                 # Check if seg_mask is also 4D (motion compensated) or 3D (static)
-                is_mask_4d = len(self.seg_data.seg_mask.shape) == 4
                 frame_data = self.image_data.intensities_for_analysis[:, :, :, frame]
 
-                # Extract corresponding frame from mask (if 4D) or use static mask (if 3D)
-                # seg_mask is for non motion compensated data
-                # mc_seg_mask is for motion compensated data
                 if self.seg_data.use_mc:
-                    if is_mask_4d:
-                        frame_mask = self.seg_data.mc_seg_mask[:, :, :, frame_ix]
-                    else:
-                        frame_mask = self.seg_data.mc_seg_mask
+                    mask = self.seg_data.seg_mask
+                    frame_mask = self.seg_data.motion_compensation.apply_to_mask(mask, frame, 0)
                 else:
-                    if is_mask_4d:
-                        frame_mask = self.seg_data.seg_mask[:, :, :, frame_ix]
-                    else:
-                        frame_mask = self.seg_data.seg_mask
+                    frame_mask = self.seg_data.seg_mask
                     
                 self.extract_frame_features(frame_data, frame_mask, frame_ix)
 

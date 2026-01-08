@@ -336,11 +336,13 @@ class DrawVOIWidget(QWidget, BaseViewMixin):
             try:
                 fig = canvas.figure
                 if plane_ix == 0:  # Axial: y vs x
-                    aspect = (self._image_data.pixdim[0]) / (self._image_data.pixdim[1]) if self._image_data.pixdim[0] != 0 else 1
+                    aspect = (self._image_data.pixdim[1]) / (self._image_data.pixdim[0]) if self._image_data.pixdim[0] != 0 else 1
+                    aspect = aspect * 0.5
                 elif plane_ix == 1:  # Sagittal: y vs z
-                    aspect = (self._image_data.pixdim[2]) / (self._image_data.pixdim[1]) if self._image_data.pixdim[2] != 0 else 1
+                    aspect = (self._image_data.pixdim[1]) / (self._image_data.pixdim[2]) if self._image_data.pixdim[2] != 0 else 1
                 elif plane_ix == 2:  # Coronal: x vs z
                     aspect = (self._image_data.pixdim[2]) / (self._image_data.pixdim[0]) if self._image_data.pixdim[2] != 0 else 1
+                    aspect = aspect * 0.5
                 else:
                     self.show_error(f"Invalid plane index: {plane_ix}")
                 

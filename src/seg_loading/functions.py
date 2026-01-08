@@ -21,7 +21,7 @@ def nifti(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
 
     # Get the number of frames from the image data and prepare the mask for it
     frame_number = image_data.pixel_data.shape[3]
-    use_mc = True
+    use_mc = False
     if use_mc == False:
         out.seg_mask = np.asarray(seg.dataobj, dtype=np.uint8) 
     else:

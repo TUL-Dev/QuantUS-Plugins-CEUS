@@ -146,7 +146,8 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
     """
     Apply 3D motion compensation using ILSA tracking.
     
-    Creates seg_data.mc_seg_mask with motion compensation applied.
+    MEMORY EFFICIENT: Stores only translation vectors (~10 KB) instead of full 4D mask (36 GB).
+    Motion compensation is applied on-demand when needed for analysis.
     
     Kwargs:
         bmode_image_data (UltrasoundImage): B-mode data for motion tracking [REQUIRED]
@@ -154,16 +155,21 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
         search_margin_ratio (float): Search margin ratio (default: 0.5/30)
         padding (int): Padding around bounding box (default: 5)
         shift_order (int): Interpolation order for shifting (default: 0 for nearest neighbor)
+        precompute_mc_mask (bool): If True, create full 4D mc_seg_mask (uses ~36 GB). 
+                                    If False (default), only store vectors (uses ~10 KB)
     
     Returns:
-        CeusSeg: Segmentation with mc_seg_mask created
+        CeusSeg: Segmentation with motion compensation info stored
     """
+    from ..seg_preprocessing.motion_compensation_3d import MotionCompensationResult
+    
     # Extract kwargs
     bmode_image_data = kwargs['bmode_image_data']
     reference_frame = kwargs.get('reference_frame', 0)
     search_margin_ratio = kwargs.get('search_margin_ratio', 0.5 / 25)
     padding = kwargs.get('padding', 5)
     shift_order = kwargs.get('shift_order', 0)  # 0=nearest neighbor for masks
+    precompute_mc_mask = kwargs.get('precompute_mc_mask', False)  # Default: memory efficient
     
     # Validate inputs
     if not isinstance(bmode_image_data, UltrasoundImage):
@@ -173,14 +179,14 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
     if bmode_image_data.pixel_data.ndim != 4:
         raise ValueError(f"B-mode data must be 4D (T, Z, Y, X), got shape {bmode_shape}")
     
-    reference_mask = seg_data.seg_mask[:,:,:,0]
+    reference_mask = seg_data.seg_mask
     # seg_mask should be (Z, Y, X) - single frame
     seg_mask_shape = reference_mask.shape
     if reference_mask.ndim != 3:
         raise ValueError(f"Segmentation mask must be 3D (Z, Y, X), got shape {seg_mask_shape}")
     
     print("\n" + "="*60)
-    print("3D Motion Compensation with ILSA Tracking")
+    print("3D Motion Compensation with ILSA Tracking (Memory Efficient)")
     print("="*60)
     
     # Step 1: Extract bounding box from segmentation
@@ -202,53 +208,48 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
 
     mc = MotionCompensation3D(search_margin_ratio=search_margin_ratio)
 
-    # Track motion - volumes are (T, Z, Y, X)
+    # Track motion - volumes are (X,Y,Z) - (Lateral, Depth, Elevational)
     tracked_bboxes, correlations = mc.track_motion_ilsa_3d(
         bmode_image_data.pixel_data,
         reference_frame,
         reference_bbox
     )
     
-    # Step 3: Apply motion compensation to create mc_seg_mask
-    print("\nStep 3: Applying motion compensation to segmentation...")
+    # Step 3: Calculate translation vectors (memory efficient!)
+    print("\nStep 3: Computing translation vectors...")
     n_frames = bmode_shape[-1]
     
-    # Create mc_seg_mask with shape (Z, Y, X, T)
-    mc_seg_mask = np.zeros((*seg_mask_shape, n_frames), dtype=seg_data.seg_mask.dtype)
-    
-    # Get reference center
+    # Store translation vectors instead of full mask
+    translation_vectors = np.zeros((n_frames, 3), dtype=np.float32)
     ref_center = reference_bbox.center
     
     for frame_idx in range(n_frames):
         bbox = tracked_bboxes[frame_idx]
-        
-        # Calculate shift from reference
         curr_center = bbox.center
-        shift_z = curr_center[0] - ref_center[0]
-        shift_y = curr_center[1] - ref_center[1]
-        shift_x = curr_center[2] - ref_center[2]
         
-        # Apply shift to segmentation (shift in opposite direction to compensate)
-        # Note: seg_mask is (Z, Y, X), so shift vector is [z, y, x]
-        shifted_mask = shift(
-            seg_data.seg_mask[...,frame_idx],
-            shift=[shift_z, shift_y, shift_x],  # Negative to compensate
-            order=shift_order,
-            cval=0,
-            prefilter=True if shift_order > 0 else False
-        )
-        
-        # Store in mc_seg_mask - last dimension is time
-        mc_seg_mask[..., frame_idx] = shifted_mask
+        # Calculate shift from reference (these are the motion compensation vectors)
+        translation_vectors[frame_idx, 0] = curr_center[0] - ref_center[0]  # dz
+        translation_vectors[frame_idx, 1] = curr_center[1] - ref_center[1]  # dy
+        translation_vectors[frame_idx, 2] = curr_center[2] - ref_center[2]  # dx
         
         if frame_idx % 10 == 0 or frame_idx == n_frames - 1:
-            print(f"  Frame {frame_idx}: shift=({shift_z:.1f}, {shift_y:.1f}, {shift_x:.1f}), "
+            print(f"  Frame {frame_idx}: shift=({translation_vectors[frame_idx, 0]:.1f}, "
+                  f"{translation_vectors[frame_idx, 1]:.1f}, {translation_vectors[frame_idx, 2]:.1f}), "
                   f"corr={correlations[frame_idx]:.3f}")
     
-    # Store results
-    seg_data.mc_seg_mask = mc_seg_mask
-    seg_data.use_mc = True
+    # Create MotionCompensationResult object
+    mc_result = MotionCompensationResult(
+        translation_vectors=translation_vectors,
+        reference_frame=reference_frame,
+        correlations=np.array(correlations, dtype=np.float32),
+        reference_bbox=reference_bbox,
+        tracked_bboxes=tracked_bboxes
+    )
     
+    # Store motion compensation result in seg_data
+    seg_data.motion_compensation = mc_result
+    seg_data.use_mc = True
+
     # Store motion info in extras_dict
     image_data.extras_dict['motion_compensation'] = {
         'applied': True,
@@ -268,153 +269,152 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
     
     print("\n" + "="*60)
     print("Motion Compensation Complete!")
-    print(f"  mc_seg_mask shape: {mc_seg_mask.shape}")
     print(f"  Mean correlation: {np.mean(correlations):.3f}")
     print("="*60 + "\n")
     
     return seg_data
 
 # Then add a new plugin function
-@required_kwargs('bmode_image_data')
-def motion_compensation_3d_optical_flow(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSeg:
-    """
-    Apply 3D motion compensation using optical flow feature tracking.
+# @required_kwargs('bmode_image_data')
+# def motion_compensation_3d_optical_flow(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSeg:
+#     """
+#     Apply 3D motion compensation using optical flow feature tracking.
     
-    Kwargs:
-        bmode_image_data (UltrasoundImage): B-mode data for motion tracking [REQUIRED]
-        reference_frame (int): Reference frame index (default: 0)
-        padding (int): Padding around bounding box (default: 5)
-        shift_order (int): Interpolation order for shifting (default: 0)
-        # Optical flow specific parameters:
-        max_corners (int): Maximum corners to detect (default: 100)
-        quality_level (float): Corner quality (default: 0.3)
-        patch_size_z (int): Z patch size (default: 5)
-        patch_size_y (int): Y patch size (default: 7)
-        patch_size_x (int): X patch size (default: 7)
-        search_range_z (int): Z search range (default: 3)
-        search_range_y (int): Y search range (default: 7)
-        search_range_x (int): X search range (default: 7)
+#     Kwargs:
+#         bmode_image_data (UltrasoundImage): B-mode data for motion tracking [REQUIRED]
+#         reference_frame (int): Reference frame index (default: 0)
+#         padding (int): Padding around bounding box (default: 5)
+#         shift_order (int): Interpolation order for shifting (default: 0)
+#         # Optical flow specific parameters:
+#         max_corners (int): Maximum corners to detect (default: 100)
+#         quality_level (float): Corner quality (default: 0.3)
+#         patch_size_z (int): Z patch size (default: 5)
+#         patch_size_y (int): Y patch size (default: 7)
+#         patch_size_x (int): X patch size (default: 7)
+#         search_range_z (int): Z search range (default: 3)
+#         search_range_y (int): Y search range (default: 7)
+#         search_range_x (int): X search range (default: 7)
     
-    Returns:
-        CeusSeg: Segmentation with mc_seg_mask created
-    """
-    # Extract kwargs
-    bmode_image_data = kwargs['bmode_image_data']
-    reference_frame = kwargs.get('reference_frame', 0)
-    padding = kwargs.get('padding', 5)
-    shift_order = kwargs.get('shift_order', 0)
+#     Returns:
+#         CeusSeg: Segmentation with mc_seg_mask created
+#     """
+#     # Extract kwargs
+#     bmode_image_data = kwargs['bmode_image_data']
+#     reference_frame = kwargs.get('reference_frame', 0)
+#     padding = kwargs.get('padding', 5)
+#     shift_order = kwargs.get('shift_order', 0)
     
-    # Optical flow parameters
-    feature_params = {
-        'maxCorners': kwargs.get('max_corners', 100),
-        'qualityLevel': kwargs.get('quality_level', 0.3),
-        'minDistance': kwargs.get('min_distance', 7),
-        'blockSize': kwargs.get('block_size', 7)
-    }
+#     # Optical flow parameters
+#     feature_params = {
+#         'maxCorners': kwargs.get('max_corners', 100),
+#         'qualityLevel': kwargs.get('quality_level', 0.3),
+#         'minDistance': kwargs.get('min_distance', 7),
+#         'blockSize': kwargs.get('block_size', 7)
+#     }
     
-    patch_size_z = kwargs.get('patch_size_z', 5)
-    patch_size_y = kwargs.get('patch_size_y', 7)
-    patch_size_x = kwargs.get('patch_size_x', 7)
-    search_range_z = kwargs.get('search_range_z', 3)
-    search_range_y = kwargs.get('search_range_y', 7)
-    search_range_x = kwargs.get('search_range_x', 7)
+#     patch_size_z = kwargs.get('patch_size_z', 5)
+#     patch_size_y = kwargs.get('patch_size_y', 7)
+#     patch_size_x = kwargs.get('patch_size_x', 7)
+#     search_range_z = kwargs.get('search_range_z', 3)
+#     search_range_y = kwargs.get('search_range_y', 7)
+#     search_range_x = kwargs.get('search_range_x', 7)
     
-    # Validate inputs
-    if not isinstance(bmode_image_data, UltrasoundImage):
-        raise TypeError("bmode_image_data must be an UltrasoundImage object")
+#     # Validate inputs
+#     if not isinstance(bmode_image_data, UltrasoundImage):
+#         raise TypeError("bmode_image_data must be an UltrasoundImage object")
     
-    bmode_shape = bmode_image_data.pixel_data.shape
-    if bmode_image_data.pixel_data.ndim != 4:
-        raise ValueError(f"B-mode data must be 4D (Z, Y, X, T), got shape {bmode_shape}")
+#     bmode_shape = bmode_image_data.pixel_data.shape
+#     if bmode_image_data.pixel_data.ndim != 4:
+#         raise ValueError(f"B-mode data must be 4D (Z, Y, X, T), got shape {bmode_shape}")
 
-    reference_mask = seg_data.seg_mask[:,:,:,0]
-    seg_mask_shape = reference_mask.shape
-    if reference_mask.ndim != 3:
-        raise ValueError(f"Segmentation mask must be 3D (Z, Y, X), got shape {seg_mask_shape}")
+#     reference_mask = seg_data.seg_mask[:,:,:,0]
+#     seg_mask_shape = reference_mask.shape
+#     if reference_mask.ndim != 3:
+#         raise ValueError(f"Segmentation mask must be 3D (Z, Y, X), got shape {seg_mask_shape}")
     
-    print("\n" + "="*60)
-    print("3D Motion Compensation with Optical Flow")
-    print("="*60)
+#     print("\n" + "="*60)
+#     print("3D Motion Compensation with Optical Flow")
+#     print("="*60)
     
-    # Step 1: Extract bounding box
-    print("\nStep 1: Extracting bounding box from segmentation...")
-    try:
-        reference_bbox = BoundingBox3D.from_mask(reference_mask, padding=padding)
-        print(f"  Bounding box: Z=[{reference_bbox.z_min}, {reference_bbox.z_max}], "
-              f"Y=[{reference_bbox.y_min}, {reference_bbox.y_max}], "
-              f"X=[{reference_bbox.x_min}, {reference_bbox.x_max}]")
-    except ValueError as e:
-        print(f"Error: {e}")
-        return seg_data
+#     # Step 1: Extract bounding box
+#     print("\nStep 1: Extracting bounding box from segmentation...")
+#     try:
+#         reference_bbox = BoundingBox3D.from_mask(reference_mask, padding=padding)
+#         print(f"  Bounding box: Z=[{reference_bbox.z_min}, {reference_bbox.z_max}], "
+#               f"Y=[{reference_bbox.y_min}, {reference_bbox.y_max}], "
+#               f"X=[{reference_bbox.x_min}, {reference_bbox.x_max}]")
+#     except ValueError as e:
+#         print(f"Error: {e}")
+#         return seg_data
     
-    # Step 2: Track motion using optical flow
-    print("\nStep 2: Tracking motion using 3D optical flow...")
+#     # Step 2: Track motion using optical flow
+#     print("\nStep 2: Tracking motion using 3D optical flow...")
     
-    mc = OpticalFlowMotionCompensation3D(
-        feature_params=feature_params,
-        patch_size_z=patch_size_z,
-        patch_size_y=patch_size_y,
-        patch_size_x=patch_size_x,
-        search_range_z=search_range_z,
-        search_range_y=search_range_y,
-        search_range_x=search_range_x
-    )
+#     mc = OpticalFlowMotionCompensation3D(
+#         feature_params=feature_params,
+#         patch_size_z=patch_size_z,
+#         patch_size_y=patch_size_y,
+#         patch_size_x=patch_size_x,
+#         search_range_z=search_range_z,
+#         search_range_y=search_range_y,
+#         search_range_x=search_range_x
+#     )
     
-    # Transpose volumes from (Z, Y, X, T) to (T, Z, Y, X) for tracking
-    volumes_transposed = np.transpose(bmode_image_data.pixel_data, (3, 0, 1, 2))
+#     # Transpose volumes from (Z, Y, X, T) to (T, Z, Y, X) for tracking
+#     volumes_transposed = np.transpose(bmode_image_data.pixel_data, (3, 0, 1, 2))
     
-    tracked_bboxes, confidences = mc.track_motion(
-        volumes_transposed,
-        reference_frame,
-        reference_bbox
-    )
+#     tracked_bboxes, confidences = mc.track_motion(
+#         volumes_transposed,
+#         reference_frame,
+#         reference_bbox
+#     )
     
-    # Step 3: Apply motion compensation
-    print("\nStep 3: Applying motion compensation to segmentation...")
-    n_frames = bmode_shape[-1]
-    mc_seg_mask = np.zeros((*seg_mask_shape, n_frames), dtype=reference_mask.dtype)
+#     # Step 3: Apply motion compensation
+#     print("\nStep 3: Applying motion compensation to segmentation...")
+#     n_frames = bmode_shape[-1]
+#     mc_seg_mask = np.zeros((*seg_mask_shape, n_frames), dtype=reference_mask.dtype)
     
-    ref_center = reference_bbox.center
+#     ref_center = reference_bbox.center
     
-    for frame_idx in range(n_frames):
-        bbox = tracked_bboxes[frame_idx]
-        curr_center = bbox.center
+#     for frame_idx in range(n_frames):
+#         bbox = tracked_bboxes[frame_idx]
+#         curr_center = bbox.center
         
-        shift_z = curr_center[0] - ref_center[0]
-        shift_y = curr_center[1] - ref_center[1]
-        shift_x = curr_center[2] - ref_center[2]
+#         shift_z = curr_center[0] - ref_center[0]
+#         shift_y = curr_center[1] - ref_center[1]
+#         shift_x = curr_center[2] - ref_center[2]
         
-        shifted_mask = shift(
-            seg_data.seg_mask[..., frame_idx],
-            shift=[-shift_z, -shift_y, -shift_x],
-            order=shift_order,
-            cval=0,
-            prefilter=True if shift_order > 0 else False
-        )
+#         shifted_mask = shift(
+#             seg_data.seg_mask[..., frame_idx],
+#             shift=[-shift_z, -shift_y, -shift_x],
+#             order=shift_order,
+#             cval=0,
+#             prefilter=True if shift_order > 0 else False
+#         )
         
-        mc_seg_mask[..., frame_idx] = shifted_mask
+#         mc_seg_mask[..., frame_idx] = shifted_mask
         
-        if frame_idx % 10 == 0 or frame_idx == n_frames - 1:
-            print(f"  Frame {frame_idx}: shift=({shift_z:.1f}, {shift_y:.1f}, {shift_x:.1f}), "
-                  f"confidence={confidences[frame_idx]:.3f}")
+#         if frame_idx % 10 == 0 or frame_idx == n_frames - 1:
+#             print(f"  Frame {frame_idx}: shift=({shift_z:.1f}, {shift_y:.1f}, {shift_x:.1f}), "
+#                   f"confidence={confidences[frame_idx]:.3f}")
     
-    # Store results
-    seg_data.mc_seg_mask = mc_seg_mask
-    seg_data.use_mc = True
+#     # Store results
+#     seg_data.mc_seg_mask = mc_seg_mask
+#     seg_data.use_mc = True
     
-    image_data.extras_dict['motion_compensation'] = {
-        'applied': True,
-        'method': 'optical_flow',
-        'reference_frame': reference_frame,
-        'mean_confidence': float(np.mean(confidences)),
-        'min_confidence': float(np.min(confidences)),
-        'confidences': [float(c) for c in confidences]
-    }
+#     image_data.extras_dict['motion_compensation'] = {
+#         'applied': True,
+#         'method': 'optical_flow',
+#         'reference_frame': reference_frame,
+#         'mean_confidence': float(np.mean(confidences)),
+#         'min_confidence': float(np.min(confidences)),
+#         'confidences': [float(c) for c in confidences]
+#     }
     
-    print("\n" + "="*60)
-    print("Motion Compensation Complete!")
-    print(f"  mc_seg_mask shape: {mc_seg_mask.shape}")
-    print(f"  Mean confidence: {np.mean(confidences):.3f}")
-    print("="*60 + "\n")
+#     print("\n" + "="*60)
+#     print("Motion Compensation Complete!")
+#     print(f"  mc_seg_mask shape: {mc_seg_mask.shape}")
+#     print(f"  Mean confidence: {np.mean(confidences):.3f}")
+#     print("="*60 + "\n")
     
-    return seg_data
+#     return seg_data

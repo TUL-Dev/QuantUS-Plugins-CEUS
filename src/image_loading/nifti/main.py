@@ -34,7 +34,14 @@ class EntryClass(UltrasoundImage):
         if kwargs.get('transpose', False):
             self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8).T
         else:
-            self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8)
+           # Memory-mapped loading for large files
+            total_bytes = np.prod(img.shape)
+            if total_bytes > 4e9:  # > 4 GB
+                print(f"Using memory-mapped loading for {total_bytes/1e9:.1f} GB file")
+                self.pixel_data = img.dataobj  # Keep as proxy - data stays on disk
+                self._img = img  # IMPORTANT: Prevent garbage collection
+            else:
+                self.pixel_data = np.asarray(img.dataobj, dtype=np.uint8)
 
         self.pixdim = pixdim
         self.frame_rate = frame_rate

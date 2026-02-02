@@ -1,6 +1,7 @@
 """
-CORRECTED: 3D Motion Compensation Evaluation Metrics
-Measures B-mode intensity similarity WITHIN the VOI, not mask overlap
+MODIFIED: 3D Motion Compensation Evaluation Metrics
+- Generates MC masks on-the-fly to save memory
+- Uses updated lognormal fitting function
 """
 
 import numpy as np
@@ -10,9 +11,10 @@ from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
 import pandas as pd
 from skimage import metrics
+from tqdm import tqdm
 
 # ============================================================================
-# VOI B-mode Similarity Metrics (CORRECTED)
+# VOI B-mode Similarity Metrics (MEMORY EFFICIENT)
 # ============================================================================
 
 def compute_roi_similarity_metrics(volume1, volume2, ref_mask, mask):
@@ -43,30 +45,29 @@ def compute_roi_similarity_metrics(volume1, volume2, ref_mask, mask):
             'mae': np.inf
         }
     
+    # Ensure same length for comparison
+    min_len = min(len(roi1), len(roi2))
+    roi1 = roi1[:min_len]
+    roi2 = roi2[:min_len]
+    
     # 1. Pearson Correlation
     if len(roi1) > 1:
         correlation, _ = pearsonr(roi1.flatten(), roi2.flatten())
     else:
         correlation = 0.0
     
-    # # 2. Normalized Cross-Correlation
-    # roi1_norm = (roi1 - np.mean(roi1)) / (np.std(roi1) + 1e-10)
-    # roi2_norm = (roi2 - np.mean(roi2)) / (np.std(roi2) + 1e-10)
-    # ncc = np.mean(roi1_norm * roi2_norm)
+    # 2. Structural Similarity
+    ssim_val = metrics.structural_similarity(roi1, roi2, data_range=roi2.max()-roi2.min())
     
-    # 3. Structural Similarity (simplified)
-    ssim, _ = metrics.structural_similarity(roi1, roi2, full=True)
-    
-    # 4. Mean Squared Error
+    # 3. Mean Squared Error
     mse = mean_squared_error(roi1, roi2)
     
-    # 5. Mean Absolute Error
+    # 4. Mean Absolute Error
     mae = np.mean(np.abs(roi1 - roi2))
     
     return {
         'correlation': correlation,
-        # 'ncc': ncc,
-        'ssim': ssim,
+        'ssim': ssim_val,
         'mse': mse,
         'mae': mae
     }
@@ -74,91 +75,106 @@ def compute_roi_similarity_metrics(volume1, volume2, ref_mask, mask):
 
 def compute_voi_bmode_similarity_over_time(
     bmode_volumes,
-    mask_with_mc,
-    mask_without_mc,
-    reference_frame=0
+    base_mask,
+    motion_compensation_result,
+    reference_frame=0,
+    use_mc=True
 ):
     """
-    CORRECTED VERSION: Compute B-mode similarity WITHIN VOI over time.
-    
-    For MC case: Compare B-mode intensities within MC mask at each frame
-                 to reference B-mode within reference mask
-    
-    For non-MC case: Compare B-mode intensities within static mask at each frame
-                      to reference B-mode within reference mask
-    
-    This measures whether the VOI is tracking the SAME TISSUE (based on B-mode appearance)
-    rather than just measuring mask overlap.
+    MEMORY EFFICIENT VERSION: Compute B-mode similarity WITHIN VOI over time.
+    Generates MC masks on-the-fly instead of storing 4D array.
     
     Args:
-        bmode_volumes: B-mode data (z, y, x, t) or (t, z, y, x)
-        mask_with_mc: Motion compensated mask (z, y, x, t)
-        mask_without_mc: Mask without MC (z, y, x, t)
+        bmode_volumes: B-mode data (z, y, x, t)
+        base_mask: Base 3D mask (z, y, x)
+        motion_compensation_result: MotionCompensationResult object
         reference_frame: Reference frame index
+        use_mc: Whether to apply motion compensation
         
     Returns:
-        dict: Results for MC and non-MC cases
+        dict: Results with similarity metrics over time
     """
     n_frames = bmode_volumes.shape[-1]
     ref_volume = bmode_volumes[..., reference_frame]
     
+    # Get reference mask (with or without MC)
+    if use_mc:
+        ref_mask = motion_compensation_result.apply_to_mask(base_mask, reference_frame, order=0)
+    else:
+        ref_mask = base_mask.copy()
+    
     # Initialize results
     results = {
-        'with_mc': {
-            'correlation': [],
-            'ssim': [],
-            'mse': [],
-            'mae': []
-        },
-        'without_mc': {
-            'correlation': [],
-            'ssim': [],
-            'mse': [],
-            'mae': []
-        }
+        'correlation': [],
+        'ssim': [],
+        'mse': [],
+        'mae': []
     }
     
-    # Reference masks
-    ref_mask = mask_with_mc[..., reference_frame]
-
-    print("Computing B-mode similarity within VOI over time...")
-    print(f"This measures whether the VOI tracks the SAME TISSUE based on B-mode appearance.")
+    print(f"Computing B-mode similarity {'WITH' if use_mc else 'WITHOUT'} motion compensation...")
     
-    for frame_idx in range(n_frames):
-        if frame_idx % 50 == 0:
-            print(f"  Processing frame {frame_idx}/{n_frames}...")
-        
+    for frame_idx in tqdm(range(n_frames), desc="Processing frames"):
         current_volume = bmode_volumes[..., frame_idx]
         
-        # ===== WITH MOTION COMPENSATION =====
-        # Use the MC mask at this frame to extract B-mode intensities
-        current_mask_mc = mask_with_mc[..., frame_idx]
+        # Generate mask for current frame on-the-fly
+        if use_mc:
+            current_mask = motion_compensation_result.apply_to_mask(base_mask, frame_idx, order=0)
+        else:
+            current_mask = base_mask.copy()
         
-        # Compare B-mode within current MC mask to B-mode within reference mask
-        # This tells us: is the VOI still over the same tissue?
-        metrics_mc = compute_roi_similarity_metrics(
-            ref_volume, current_volume, ref_mask, current_mask_mc
+        # Compare B-mode within current mask to B-mode within reference mask
+        metrics_dict = compute_roi_similarity_metrics(
+            ref_volume, current_volume, ref_mask, current_mask
         )
         
-        for key in metrics_mc:
-            results['with_mc'][key].append(metrics_mc[key])
-        
-        # ===== WITHOUT MOTION COMPENSATION =====
-        # Use the static mask (same for all frames) to extract B-mode intensities
-        current_mask_no_mc = mask_without_mc[..., frame_idx]
-        
-        # Compare B-mode within static mask to B-mode within reference mask
-        # Since mask doesn't move but tissue does, similarity will DECREASE
-        metrics_no_mc = compute_roi_similarity_metrics(
-            ref_volume, current_volume, ref_mask,current_mask_no_mc
-        )
-        
-        for key in metrics_no_mc:
-            results['without_mc'][key].append(metrics_no_mc[key])
+        for key in metrics_dict:
+            results[key].append(metrics_dict[key])
     
     print("  Done!")
     
     return results
+
+
+def compute_voi_bmode_similarity_comparison(
+    bmode_volumes,
+    base_mask,
+    motion_compensation_result,
+    reference_frame=0
+):
+    """
+    Compare MC vs non-MC similarity using on-the-fly mask generation.
+    
+    Args:
+        bmode_volumes: B-mode data (z, y, x, t)
+        base_mask: Base 3D mask (z, y, x)
+        motion_compensation_result: MotionCompensationResult object
+        reference_frame: Reference frame index
+        
+    Returns:
+        dict: Results for both MC and non-MC cases
+    """
+    # Compute with MC
+    results_mc = compute_voi_bmode_similarity_over_time(
+        bmode_volumes,
+        base_mask,
+        motion_compensation_result,
+        reference_frame,
+        use_mc=True
+    )
+    
+    # Compute without MC
+    results_no_mc = compute_voi_bmode_similarity_over_time(
+        bmode_volumes,
+        base_mask,
+        motion_compensation_result,
+        reference_frame,
+        use_mc=False
+    )
+    
+    return {
+        'with_mc': results_mc,
+        'without_mc': results_no_mc
+    }
 
 
 def plot_voi_bmode_similarity_comparison(results, output_path=None):
@@ -166,14 +182,13 @@ def plot_voi_bmode_similarity_comparison(results, output_path=None):
     Create comprehensive plots comparing B-mode similarity within VOI.
     
     Args:
-        results: Dictionary from compute_voi_bmode_similarity_over_time
+        results: Dictionary from compute_voi_bmode_similarity_comparison
         output_path: Optional path to save figure
     """
     metrics = ['correlation', 'ssim']
     metric_names = ['Pearson Correlation', 'SSIM']
     
-    fig, axes = plt.subplots(1, 3, figsize=(12, 6))
-    axes = axes.flatten()
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     n_frames = len(results['with_mc']['correlation'])
     frames = np.arange(n_frames)
@@ -258,7 +273,7 @@ def plot_voi_bmode_similarity_comparison(results, output_path=None):
 
 
 # ============================================================================
-# TIC Analysis and Lognormal Fitting (UNCHANGED)
+# TIC Analysis with Updated Lognormal Fitting
 # ============================================================================
 
 def bolus_lognormal(t, auc, mu, sigma, t0):
@@ -274,25 +289,25 @@ def fit_lognormal_curve(time, curve):
     Fit a log-normal distribution to the given curve.
     
     Args:
-        time: Time array
-        curve: Curve data to fit
+        time (np.ndarray): The time array corresponding to the curve.
+        curve (np.ndarray): The curve data to fit.
         
     Returns:
-        tuple: Fitted parameters and fitted curve values
+        tuple: Fitted parameters (auc, pe, tp, mtt, t0, mu, sigma, pe_loc) and fitted curve
     """
-    # Prepare curve
-    curve = curve - np.amin(curve)
+    curve = curve.copy()  # Don't modify original
+    curve -= np.amin(curve)  # Shift to start at zero
     
     if np.amax(curve) == 0:
         print("Curve is constant, cannot normalize.")
         return tuple(np.nan for _ in range(8)), None
     
-    curve_norm = curve / np.amax(curve)
+    curve = curve / np.amax(curve)  # Normalize
     
     # Initial guesses
-    auc_guess = np.sum(curve_norm) * (time[1] - time[0])
-    peak_idx = np.argmax(curve_norm)
-    mu_guess = np.log(time[peak_idx] + 1e-10)
+    auc_guess = np.sum(curve) * (time[1] - time[0])
+    peak_idx = np.argmax(curve)
+    mu_guess = np.log(time[peak_idx] + 1e-10)  # Use time value, not index
     sigma_guess = 0.5
     t0_guess = time[peak_idx] * 0.15
     
@@ -300,11 +315,11 @@ def fit_lognormal_curve(time, curve):
         params, _ = curve_fit(
             bolus_lognormal,
             time,
-            curve_norm,
+            curve,
             p0=(auc_guess, mu_guess, sigma_guess, t0_guess),
             bounds=([0., -10., 0.01, 0.], [np.inf, 10., 5.0, time[-1]]),
             method='trf',
-            maxfev=10000
+            maxfev=10000  # Increase evaluations
         )
     except Exception as e:
         print(f"Error fitting curve: {e}")
@@ -322,6 +337,50 @@ def fit_lognormal_curve(time, curve):
     pe_loc = np.argmax(fitted_curve)
     
     return (auc, pe, tp, mtt, t0, mu, sigma, pe_loc), fitted_curve
+
+
+def compute_tic_from_volumes(
+    ceus_volumes,
+    base_mask,
+    motion_compensation_result,
+    use_mc=True
+):
+    """
+    Compute TIC by generating masks on-the-fly.
+    
+    Args:
+        ceus_volumes: CEUS data (z, y, x, t)
+        base_mask: Base 3D mask (z, y, x)
+        motion_compensation_result: MotionCompensationResult object
+        use_mc: Whether to apply motion compensation
+        
+    Returns:
+        np.ndarray: TIC curve (mean intensity per frame)
+    """
+    n_frames = ceus_volumes.shape[-1]
+    tic = np.zeros(n_frames)
+    
+    print(f"Computing TIC {'WITH' if use_mc else 'WITHOUT'} motion compensation...")
+    
+    for frame_idx in tqdm(range(n_frames), desc="Computing TIC"):
+        # Generate mask for this frame on-the-fly
+        if use_mc:
+            mask = motion_compensation_result.apply_to_mask(base_mask, frame_idx, order=0)
+        else:
+            mask = base_mask.copy()
+        
+        # Extract CEUS intensities within mask
+        frame_volume = ceus_volumes[..., frame_idx]
+        roi_intensities = frame_volume[mask > 0]
+        
+        # Compute mean intensity
+        if len(roi_intensities) > 0:
+            tic[frame_idx] = np.mean(roi_intensities)
+        else:
+            tic[frame_idx] = 0.0
+    
+    print("  Done!")
+    return tic
 
 
 def evaluate_tic_fitting(time_arr, tic_mc, tic_no_mc):
@@ -367,7 +426,7 @@ def evaluate_tic_fitting(time_arr, tic_mc, tic_no_mc):
         
         ss_res_mc = np.sum((tic_mc_norm - fitted_mc) ** 2)
         ss_tot_mc = np.sum((tic_mc_norm - np.mean(tic_mc_norm)) ** 2)
-        r2_mc = 1 - (ss_res_mc / ss_tot_mc)
+        r2_mc = 1 - (ss_res_mc / (ss_tot_mc + 1e-10))
         
         rmse_mc = np.sqrt(mean_squared_error(tic_mc_norm, fitted_mc))
         corr_mc, _ = pearsonr(tic_mc_norm, fitted_mc)
@@ -376,13 +435,18 @@ def evaluate_tic_fitting(time_arr, tic_mc, tic_no_mc):
         results['with_mc']['rmse'] = rmse_mc
         results['with_mc']['correlation'] = corr_mc
         results['with_mc']['residual_sum_squares'] = ss_res_mc
+    else:
+        results['with_mc']['r2'] = 0.0
+        results['with_mc']['rmse'] = np.inf
+        results['with_mc']['correlation'] = 0.0
+        results['with_mc']['residual_sum_squares'] = np.inf
     
     if fitted_no_mc is not None:
         tic_no_mc_norm = (tic_no_mc - np.min(tic_no_mc)) / (np.max(tic_no_mc) - np.min(tic_no_mc) + 1e-10)
         
         ss_res_no_mc = np.sum((tic_no_mc_norm - fitted_no_mc) ** 2)
         ss_tot_no_mc = np.sum((tic_no_mc_norm - np.mean(tic_no_mc_norm)) ** 2)
-        r2_no_mc = 1 - (ss_res_no_mc / ss_tot_no_mc)
+        r2_no_mc = 1 - (ss_res_no_mc / (ss_tot_no_mc + 1e-10))
         
         rmse_no_mc = np.sqrt(mean_squared_error(tic_no_mc_norm, fitted_no_mc))
         corr_no_mc, _ = pearsonr(tic_no_mc_norm, fitted_no_mc)
@@ -391,6 +455,11 @@ def evaluate_tic_fitting(time_arr, tic_mc, tic_no_mc):
         results['without_mc']['rmse'] = rmse_no_mc
         results['without_mc']['correlation'] = corr_no_mc
         results['without_mc']['residual_sum_squares'] = ss_res_no_mc
+    else:
+        results['without_mc']['r2'] = 0.0
+        results['without_mc']['rmse'] = np.inf
+        results['without_mc']['correlation'] = 0.0
+        results['without_mc']['residual_sum_squares'] = np.inf
     
     # Calculate TIC variability
     results['with_mc']['cv'] = np.std(tic_mc) / (np.mean(tic_mc) + 1e-10)
@@ -434,12 +503,12 @@ def plot_tic_fitting_comparison(time_arr, tic_mc, tic_no_mc, fitting_results,
     ax2 = axes[0, 1]
     
     if fitting_results['with_mc']['fitted_curve'] is not None:
-        tic_mc_norm = (tic_mc - np.min(tic_mc)) / (np.max(tic_mc) - np.min(tic_mc))
+        tic_mc_norm = (tic_mc - np.min(tic_mc)) / (np.max(tic_mc) - np.min(tic_mc) + 1e-10)
         residuals_mc = tic_mc_norm - fitting_results['with_mc']['fitted_curve']
         ax2.plot(time_arr, residuals_mc, 'g-', linewidth=2, alpha=0.7, label='MC Residuals')
     
     if fitting_results['without_mc']['fitted_curve'] is not None:
-        tic_no_mc_norm = (tic_no_mc - np.min(tic_no_mc)) / (np.max(tic_no_mc) - np.min(tic_no_mc))
+        tic_no_mc_norm = (tic_no_mc - np.min(tic_no_mc)) / (np.max(tic_no_mc) - np.min(tic_no_mc) + 1e-10)
         residuals_no_mc = tic_no_mc_norm - fitting_results['without_mc']['fitted_curve']
         ax2.plot(time_arr, residuals_no_mc, 'r-', linewidth=2, alpha=0.7, label='No-MC Residuals')
     
@@ -565,3 +634,69 @@ def generate_comprehensive_report(voi_results, tic_results, output_path='mc_eval
         f.write(f"  Improvement:  {cv_imp:+.2f}%\n\n")
     
     print(f"\nComprehensive report saved to: {output_path}")
+
+
+# ============================================================================
+# Example Usage
+# ============================================================================
+
+def example_usage():
+    """
+    Example of how to use the modified evaluation functions.
+    """
+    # Assuming you have:
+    # - bmode_volumes: (z, y, x, t) B-mode data
+    # - ceus_volumes: (z, y, x, t) CEUS data
+    # - base_mask: (z, y, x) segmentation mask
+    # - motion_compensation_result: MotionCompensationResult object
+    
+    print("Example usage:")
+    print("""
+    # 1. Compute B-mode similarity comparison
+    voi_results = compute_voi_bmode_similarity_comparison(
+        bmode_volumes,
+        base_mask,
+        motion_compensation_result,
+        reference_frame=0
+    )
+    
+    # 2. Plot results
+    plot_voi_bmode_similarity_comparison(
+        voi_results,
+        output_path='voi_similarity_comparison.png'
+    )
+    
+    # 3. Compute TICs
+    tic_mc = compute_tic_from_volumes(
+        ceus_volumes,
+        base_mask,
+        motion_compensation_result,
+        use_mc=True
+    )
+    
+    tic_no_mc = compute_tic_from_volumes(
+        ceus_volumes,
+        base_mask,
+        motion_compensation_result,
+        use_mc=False
+    )
+    
+    # 4. Evaluate TIC fitting
+    time_arr = np.arange(len(tic_mc)) * frame_rate  # e.g., frame_rate = 1/15
+    tic_results = evaluate_tic_fitting(time_arr, tic_mc, tic_no_mc)
+    
+    # 5. Plot TIC comparison
+    plot_tic_fitting_comparison(
+        time_arr, tic_mc, tic_no_mc, tic_results,
+        output_path='tic_fitting_comparison.png'
+    )
+    
+    # 6. Generate report
+    generate_comprehensive_report(
+        voi_results, tic_results,
+        output_path='mc_evaluation_report.txt'
+    )
+    """)
+
+if __name__ == "__main__":
+    example_usage()

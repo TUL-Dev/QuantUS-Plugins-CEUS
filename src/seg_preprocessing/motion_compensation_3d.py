@@ -304,14 +304,14 @@ class MotionCompensation3D:
             # Pick whichever has better correlation
             if max_corr_ref[0] >= max_corr_prev[0]:
                 dx, dy, dz = self.find_optimal_translation(
-                    corr_map_ref[0], search_bbox, reference_bbox
+                    corr_map_ref, search_bbox, reference_bbox
                 )
                 tracked_bboxes[frame_idx] = reference_bbox.translate(dx, dy, dz)
                 correlations[frame_idx] = max_corr_ref[0]
                 tracking_sources[frame_idx] = 'reference'
             else:
                 dx, dy, dz = self.find_optimal_translation(
-                    corr_map_prev[0], search_bbox, prev_bbox
+                    corr_map_prev, search_bbox, prev_bbox
                 )
                 tracked_bboxes[frame_idx] = prev_bbox.translate(dx, dy, dz)
                 correlations[frame_idx] = max_corr_prev[0]

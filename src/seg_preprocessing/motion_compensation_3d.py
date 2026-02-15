@@ -18,67 +18,30 @@ from ..postprocessing.post_processing import enhance_image
 @dataclass
 class MotionCompensationResult:
     """Store motion compensation results efficiently"""
-    translation_vectors: np.ndarray  # Shape: (n_frames, 3) - (dx, dy, dz) for each frame
+    translation_vectors: np.ndarray
     reference_frame: int
-    correlations: np.ndarray  # Shape: (n_frames,)
+    correlations: np.ndarray
     reference_bbox: 'BoundingBox3D'
     tracked_bboxes: List['BoundingBox3D']
     
     def get_translation(self, frame_idx: int) -> Tuple[float, float, float]:
-        """Get translation vector for a specific frame (dx, dy, dz)"""
         return tuple(self.translation_vectors[frame_idx])
     
     def apply_to_mask(self, mask_3d: np.ndarray, frame_idx: int, order: int = 0) -> np.ndarray:
-        """
-        Apply motion compensation to a 3D mask for a specific frame
-        
-        Args:
-            mask_3d: Base 3D mask (X, Y, Z)
-            frame_idx: Frame index to compensate for
-            order: Interpolation order (0=nearest neighbor for masks)
-            
-        Returns:
-            Compensated 3D mask
-        """
         dx, dy, dz = self.get_translation(frame_idx)
-        return shift(
-            mask_3d,
-            shift=[dx, dy, dz],
-            order=order,
-            cval=0,
-            prefilter=True if order > 0 else False
-        )
+        return shift(mask_3d, shift=[dx, dy, dz], order=order, cval=0,
+                    prefilter=True if order > 0 else False)
     
     def apply_to_all_frames(self, mask_3d: np.ndarray, order: int = 0) -> np.ndarray:
-        """
-        Apply motion compensation to create full 4D mask
-        WARNING: This creates a large array in memory!
-        
-        Args:
-            mask_3d: Base 3D mask (X, Y, Z)
-            order: Interpolation order
-            
-        Returns:
-            4D mask (X, Y, Z, T)
-        """
         n_frames = len(self.translation_vectors)
         mc_mask_4d = np.zeros((*mask_3d.shape, n_frames), dtype=mask_3d.dtype)
-        
         for frame_idx in range(n_frames):
             mc_mask_4d[..., frame_idx] = self.apply_to_mask(mask_3d, frame_idx, order)
-        
         return mc_mask_4d
-    
-    def get_memory_usage(self) -> str:
-        """Estimate memory usage of this object"""
-        vector_bytes = self.translation_vectors.nbytes
-        corr_bytes = self.correlations.nbytes
-        total_kb = (vector_bytes + corr_bytes) / 1024
-        return f"{total_kb:.2f} KB"
 
 @dataclass
 class BoundingBox3D:
-    """3D Bounding box definition (x, y, z) format = (lateral, depth, elevational)"""
+    """3D Bounding box definition"""
     x_min: int
     x_max: int
     y_min: int
@@ -88,41 +51,31 @@ class BoundingBox3D:
     
     @property
     def shape(self) -> Tuple[int, int, int]:
-        """Returns (width, height, depth) = (lateral, depth, elevational)"""
         return (self.x_max - self.x_min, self.y_max - self.y_min, self.z_max - self.z_min)
     
     @property
     def center(self) -> Tuple[float, float, float]:
-        """Returns (x_center, y_center, z_center)"""
-        return (
-            (self.x_min + self.x_max) / 2,
-            (self.y_min + self.y_max) / 2,
-            (self.z_min + self.z_max) / 2
-        )
+        return ((self.x_min + self.x_max) / 2,
+                (self.y_min + self.y_max) / 2,
+                (self.z_min + self.z_max) / 2)
     
     def expand(self, margin: Tuple[int, int, int]) -> 'BoundingBox3D':
-        """Expand bbox by margin (margin_x, margin_y, margin_z)"""
         return BoundingBox3D(
             max(0, self.x_min - margin[0]), self.x_max + margin[0],
             max(0, self.y_min - margin[1]), self.y_max + margin[1],
-            max(0, self.z_min - margin[2]), self.z_max + margin[2]
-        )
+            max(0, self.z_min - margin[2]), self.z_max + margin[2])
     
     def extract_from_volume(self, volume: np.ndarray) -> np.ndarray:
-        """Extract region from volume (X, Y, Z)"""
         return volume[self.x_min:self.x_max, self.y_min:self.y_max, self.z_min:self.z_max]
     
     def translate(self, dx: int, dy: int, dz: int) -> 'BoundingBox3D':
-        """Translate bbox by (dx, dy, dz)"""
         return BoundingBox3D(
             self.x_min + dx, self.x_max + dx,
             self.y_min + dy, self.y_max + dy,
-            self.z_min + dz, self.z_max + dz
-        )
+            self.z_min + dz, self.z_max + dz)
     
     @classmethod
     def from_mask(cls, mask: np.ndarray, padding: int = 0) -> 'BoundingBox3D':
-        """Create bounding box from binary mask (X, Y, Z)"""
         nonzero = np.argwhere(mask > 0)
         if len(nonzero) == 0:
             raise ValueError("Mask contains no non-zero voxels")
@@ -136,21 +89,30 @@ class BoundingBox3D:
         
         return cls(x_min, x_max, y_min, y_max, z_min, z_max)
 
+
 class MotionCompensation3D:
     """
-    3D Motion Compensation using ILSA tracking
-    Axis convention: (X, Y, Z, T) = (lateral, depth, elevational, time)
+    3D Motion Compensation using ILSA tracking or Reference-only tracking
     """
     
-    def __init__(self, search_margin_ratio: float = 0.5 / 30):
+    def __init__(
+        self, 
+        search_margin_ratio: float = 0.5 / 30,
+        use_reference_only: bool = False  # ← NEW PARAMETER
+    ):
+        """
+        Args:
+            search_margin_ratio: Search margin as ratio of volume dimensions
+            use_reference_only: If True, always track from reference frame only
+                               If False, use ILSA (compare reference vs previous)
+        """
         self.search_margin_ratio = search_margin_ratio
+        self.use_reference_only = use_reference_only
     
     def compute_search_margin(self, volume_shape: Tuple[int, int, int]) -> Tuple[int, int, int]:
-        """Compute search margin for (X, Y, Z) volume"""
         return tuple(int(self.search_margin_ratio * x) for x in volume_shape)
     
     def normalize_volume(self, volume: np.ndarray) -> np.ndarray:
-        """Normalize volume to zero mean and unit variance"""
         mean = np.mean(volume)
         std = np.std(volume)
         if std == 0:
@@ -159,67 +121,35 @@ class MotionCompensation3D:
        
     def compute_3d_correlation_vectorized(
         self,
-        volumes: np.ndarray,  # Shape: (X, Y, Z, 1)
-        reference_voi: np.ndarray,  # Shape: (ref_x, ref_y, ref_z)
+        volumes: np.ndarray,
+        reference_voi: np.ndarray,
         search_bbox: BoundingBox3D
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Vectorized 3D correlation computation across all frames
-        
-        Args:
-            volumes: Full volume data for all frames (X, Y, Z, T)
-            reference_voi: Reference volume of interest (VOI) (X, Y, Z)
-            search_bbox: Bounding box defining search region
-            
-        Returns:
-            correlation_map: Shape (n_frames, search_x, search_y, search_z)
-            max_correlations: Shape (n_frames,) - maximum correlation per frame
-        """
+        """Vectorized 3D correlation computation"""
         n_frames = volumes.shape[-1]
         ref_shape = reference_voi.shape
-        
-        # Normalize reference VOI
         ref_normalized = self.normalize_volume(reference_voi)
         
-        # Initialize correlation map
         search_shape = search_bbox.shape
-        # Calculate output shape after correlation
         corr_shape = tuple(s - r + 1 for s, r in zip(search_shape, ref_shape))
         correlation_map = np.zeros((n_frames, *corr_shape))
         
-        # Extract search region for this frame
         search_region = search_bbox.extract_from_volume(volumes[..., 0])
-        
-        # Normalize search region
         search_normalized = self.normalize_volume(search_region)
         
-        # Compute normalized cross-correlation
-        correlation = correlate(
-            search_normalized,
-            ref_normalized,
-            mode='valid',
-            method='fft'
-        )
+        correlation = correlate(search_normalized, ref_normalized, mode='valid', method='fft')
         
-        # Normalize correlation
         ref_sum_sq = np.sum(ref_normalized ** 2)
-        
-        # For each position in correlation map, compute local sum of squares
         search_sq = search_normalized ** 2
         kernel = np.ones(ref_shape)
         local_sum_sq = correlate(search_sq, kernel, mode='valid', method='fft')
         
-        # Avoid division by zero
         denominator = np.sqrt(ref_sum_sq * local_sum_sq)
         denominator = np.where(denominator == 0, 1e-10, denominator)
         
         correlation_map = correlation / denominator
+        max_correlations = np.max(correlation_map.reshape(n_frames, -1), axis=1)
         
-        # Find maximum correlation for each frame
-        max_correlations = np.max(
-            correlation_map.reshape(n_frames, -1),
-            axis=1
-        )
         return correlation_map, max_correlations
     
     def find_optimal_translation(
@@ -228,7 +158,7 @@ class MotionCompensation3D:
         search_bbox: BoundingBox3D,
         reference_bbox: BoundingBox3D
     ) -> Tuple[int, int, int]:
-        """Find optimal translation from correlation map (dx, dy, dz)"""
+        """Find optimal translation from correlation map"""
         max_idx = np.unravel_index(np.argmax(correlation_map), correlation_map.shape)
         
         dx = search_bbox.x_min + max_idx[0] - reference_bbox.x_min
@@ -239,15 +169,15 @@ class MotionCompensation3D:
     
     def track_motion_ilsa_3d(
         self,
-        volumes: np.ndarray,  # Shape: (X, Y, Z, T)
+        volumes: np.ndarray,
         reference_frame_idx: int,
         reference_bbox: BoundingBox3D
     ) -> Tuple[List[BoundingBox3D], List[float]]:
         """
-        ILSA tracking: bidirectional with reference vs temporal neighbor selection
+        ILSA tracking with optional reference-only mode
         
         Args:
-            volumes: All volume frames (X, Y, Z, T) = (lateral, depth, elevational, time)
+            volumes: All volume frames (X, Y, Z, T)
             reference_frame_idx: Index of reference frame
             reference_bbox: Bounding box around lesion in reference frame
             
@@ -256,13 +186,13 @@ class MotionCompensation3D:
             correlations: List of correlation values
         """
         n_frames = volumes.shape[-1]
-        ref_img = volumes[..., reference_frame_idx]  # Shape: (X, Y, Z)
+        ref_img = volumes[..., reference_frame_idx]
         
-        # Apply image enhancement (no transpose needed!)
+        # Apply image enhancement
         ref_clahe_image = enhance_image(ref_img, method='clahe', clip_limit=1.0)
         ref_final_image = enhance_image(ref_clahe_image, method='gamma', gamma=1.2)
-
         ref_voi = reference_bbox.extract_from_volume(ref_final_image)
+        
         search_margin = self.compute_search_margin(volumes.shape[:-1])
         
         tracked_bboxes = [None] * n_frames
@@ -274,6 +204,14 @@ class MotionCompensation3D:
         correlations[reference_frame_idx] = 1.0
         tracking_sources[reference_frame_idx] = 'reference'
         
+        # Print tracking mode
+        if self.use_reference_only:
+            print("\n=== Reference-Only Tracking Mode ===")
+            print("All frames will be tracked from reference frame only")
+        else:
+            print("\n=== ILSA Tracking Mode ===")
+            print("Comparing reference frame vs previous frame")
+        
         # === FORWARD TRACKING ===
         forward_frames = range(reference_frame_idx + 1, n_frames)
         forward_frames = tqdm(forward_frames, desc="Tracking frames", unit="frame")
@@ -282,89 +220,62 @@ class MotionCompensation3D:
             prev_bbox = tracked_bboxes[frame_idx - 1]
             search_bbox = prev_bbox.expand(search_margin)
             
-            # Extract and enhance current frame (X, Y, Z)
+            # Extract and enhance current frame
             image_analysis = volumes[..., frame_idx]
             clahe_image = enhance_image(image_analysis, method='clahe', clip_limit=1.0)
             final_image = enhance_image(clahe_image, method='gamma', gamma=1.2)
+            final_image = final_image[..., np.newaxis]
             
-            # Add frame dimension for correlation function
-            final_image = final_image[..., np.newaxis]  # (X, Y, Z, 1)
-
-            # Try reference frame
+            # ═══════════════════════════════════════════════════════════
+            # ★ KEY CHANGE: Reference-only vs ILSA decision
+            # ═══════════════════════════════════════════════════════════
+            
+            # Always compute reference correlation
             corr_map_ref, max_corr_ref = self.compute_3d_correlation_vectorized(
                 final_image, ref_voi, search_bbox
             )
             
-            # Try previous frame
-            prev_voi = prev_bbox.extract_from_volume(volumes[..., frame_idx - 1])
-            corr_map_prev, max_corr_prev = self.compute_3d_correlation_vectorized(
-                final_image, prev_voi, search_bbox
-            )
-            
-            # Pick whichever has better correlation
-            if max_corr_ref[0] >= max_corr_prev[0]:
+            if self.use_reference_only:
+                # ★ REFERENCE-ONLY MODE: Skip previous frame comparison
                 dx, dy, dz = self.find_optimal_translation(
                     corr_map_ref, search_bbox, reference_bbox
                 )
                 tracked_bboxes[frame_idx] = reference_bbox.translate(dx, dy, dz)
                 correlations[frame_idx] = max_corr_ref[0]
-                tracking_sources[frame_idx] = 'reference'
+                tracking_sources[frame_idx] = 'reference_only'
+                
             else:
-                dx, dy, dz = self.find_optimal_translation(
-                    corr_map_prev, search_bbox, prev_bbox
+                # ★ ILSA MODE: Compare reference vs previous
+                prev_voi = prev_bbox.extract_from_volume(volumes[..., frame_idx - 1])
+                corr_map_prev, max_corr_prev = self.compute_3d_correlation_vectorized(
+                    final_image, prev_voi, search_bbox
                 )
-                tracked_bboxes[frame_idx] = prev_bbox.translate(dx, dy, dz)
-                correlations[frame_idx] = max_corr_prev[0]
-                tracking_sources[frame_idx] = 'previous'
-        
-        # === BACKWARD TRACKING ===
-        # Commented out - only using forward tracking
-        # for frame_idx in range(reference_frame_idx - 1, -1, -1):
-        #     next_bbox = tracked_bboxes[frame_idx + 1]
-        #     search_bbox = next_bbox.expand(search_margin)
-        #     
-        #     # Extract and enhance current frame
-        #     image_analysis = volumes[..., frame_idx]
-        #     clahe_image = enhance_image(image_analysis, method='clahe', clip_limit=1.0)
-        #     final_image = enhance_image(clahe_image, method='gamma', gamma=1.2)
-        #     final_image = final_image[..., np.newaxis]
-        #     
-        #     # Try reference frame
-        #     corr_map_ref, max_corr_ref = self.compute_3d_correlation_vectorized(
-        #         final_image, ref_voi, search_bbox
-        #     )
-        #     
-        #     # Try next frame
-        #     next_voi = next_bbox.extract_from_volume(volumes[..., frame_idx + 1])
-        #     corr_map_next, max_corr_next = self.compute_3d_correlation_vectorized(
-        #         final_image, next_voi, search_bbox
-        #     )
-        #     
-        #     # Pick whichever has better correlation
-        #     if max_corr_ref[0] >= max_corr_next[0]:
-        #         dx, dy, dz = self.find_optimal_translation(
-        #             corr_map_ref[0], search_bbox, reference_bbox
-        #         )
-        #         tracked_bboxes[frame_idx] = reference_bbox.translate(dx, dy, dz)
-        #         correlations[frame_idx] = max_corr_ref[0]
-        #         tracking_sources[frame_idx] = 'reference'
-        #     else:
-        #         dx, dy, dz = self.find_optimal_translation(
-        #             corr_map_next[0], search_bbox, next_bbox
-        #         )
-        #         tracked_bboxes[frame_idx] = next_bbox.translate(dx, dy, dz)
-        #         correlations[frame_idx] = max_corr_next[0]
-        #         tracking_sources[frame_idx] = 'next'
+                
+                # Pick whichever has better correlation
+                if max_corr_ref[0] >= max_corr_prev[0]:
+                    dx, dy, dz = self.find_optimal_translation(
+                        corr_map_ref, search_bbox, reference_bbox
+                    )
+                    tracked_bboxes[frame_idx] = reference_bbox.translate(dx, dy, dz)
+                    correlations[frame_idx] = max_corr_ref[0]
+                    tracking_sources[frame_idx] = 'reference'
+                else:
+                    dx, dy, dz = self.find_optimal_translation(
+                        corr_map_prev, search_bbox, prev_bbox
+                    )
+                    tracked_bboxes[frame_idx] = prev_bbox.translate(dx, dy, dz)
+                    correlations[frame_idx] = max_corr_prev[0]
+                    tracking_sources[frame_idx] = 'previous'
         
         # === PRINT STATS ===
         source_counts = Counter(tracking_sources)
-        print(f"\nTracking complete!")
-        print(f"  Sources: {dict(source_counts)}")
-        print(f"  Mean correlation: {np.mean(correlations):.3f}")
-        print(f"  Min correlation: {np.min(correlations):.3f}")
+        print(f"\n=== Tracking Complete ===")
+        print(f"Sources: {dict(source_counts)}")
+        print(f"Mean correlation: {np.mean(correlations):.3f}")
+        print(f"Min correlation: {np.min(correlations):.3f}")
         
         return tracked_bboxes, correlations
-
+    
 class OpticalFlowMotionCompensation3D:
     """
     3D Motion Compensation using TRUE 3D Feature Tracking

@@ -7,7 +7,7 @@ from ..seg_preprocessing.decorators import required_kwargs
 from ..data_objs.image import UltrasoundImage
 from ..data_objs.seg import CeusSeg
 from ..image_preprocessing.transforms import resample_to_spacing_2d, resample_to_spacing_3d
-from ..seg_preprocessing.motion_compensation_3d import MotionCompensation3D, BoundingBox3D, OpticalFlowMotionCompensation3D
+from ..seg_preprocessing.motion_compensation_3d import MotionCompensation3D, BoundingBox3D
 
 @required_kwargs('target_vox_size', 'interp')
 def resample(image_data: UltrasoundImage, seg_data: CeusSeg, **kwargs) -> CeusSeg:
@@ -206,8 +206,11 @@ def motion_compensation_3d(image_data: UltrasoundImage, seg_data: CeusSeg, **kwa
     print(f"  Reference frame: {reference_frame}")
     print(f"  Search margin ratio: {search_margin_ratio}")
 
-    mc = MotionCompensation3D(search_margin_ratio=search_margin_ratio)
-
+    mc = MotionCompensation3D(
+        search_margin_ratio=search_margin_ratio,
+        use_reference_only = True
+    )
+    
     # Track motion - volumes are (X,Y,Z) - (Lateral, Depth, Elevational)
     tracked_bboxes, correlations = mc.track_motion_ilsa_3d(
         bmode_image_data.pixel_data,

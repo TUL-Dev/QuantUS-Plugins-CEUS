@@ -84,10 +84,14 @@ class CurveQuantifications:
             for func in self.ordered_funcs:
                 func(self.analysis_objs, curves, data_dict, **self.kwargs)
 
-        # Assert all data_dicts have the same keys
-        key_sets = [set(d.keys()) for d in self.data_dict]
-        first_keys = key_sets[0]
-        assert all(keys == first_keys for keys in key_sets), "Not all data_dicts have the same keys"
+        # Ensure all data_dicts have the same keys (fill missing with None)
+        all_keys = set()
+        for d in self.data_dict:
+            all_keys.update(d.keys())
+        for d in self.data_dict:
+            for key in all_keys:
+                if key not in d:
+                    d[key] = None
 
         if self.output_path:
             assert self.output_path.endswith('.csv'), 'output_path must end with .csv to export to CSV format'

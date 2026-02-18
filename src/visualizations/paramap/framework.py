@@ -49,8 +49,14 @@ class ParamapVisualizations(ParamapDrawingBase):
             cmap (np.ndarray): The colormap to use for the parametric map.
         """
         assert param in self.results_df.columns, f"Parameter '{param}' not found in quantified results"
-    
-        numerical_paramap = np.full(self.quants_obj.analysis_objs.seg_data.seg_mask.shape, fill_value=None, dtype=object)
+
+        # Create paramap array with correct dimensionality (3D vs 2D)
+        if hasattr(self.quants_obj.analysis_objs, 'cor_vox_len'):
+            # 3D data: use full seg_mask shape
+            numerical_paramap = np.full(self.quants_obj.analysis_objs.seg_data.seg_mask.shape, fill_value=None, dtype=object)
+        else:
+            # 2D data: use shape without time dimension
+            numerical_paramap = np.full(self.quants_obj.analysis_objs.seg_data.seg_mask.shape[1:3], fill_value=None, dtype=object)
         param_vals = self.results_df[param].values
 
         min_val = min(param_vals); max_val = max(param_vals)
@@ -115,7 +121,12 @@ class ParamapVisualizations(ParamapDrawingBase):
         colored_paramap = np.zeros(numerical_paramap.shape + (4,), dtype=np.uint8)
 
         # Trim parametric map to the segmentation mask
-        mask_bkgr = np.where(self.quants_obj.analysis_objs.seg_data.seg_mask == 0)
+        if hasattr(self.quants_obj.analysis_objs, 'cor_vox_len'):
+            # 3D data: use full seg_mask
+            mask_bkgr = np.where(self.quants_obj.analysis_objs.seg_data.seg_mask == 0)
+        else:
+            # 2D data: use first frame of seg_mask
+            mask_bkgr = np.where(self.quants_obj.analysis_objs.seg_data.seg_mask[0] == 0)
         colored_paramap[mask_bkgr] = 0
         numerical_paramap[mask_bkgr] = np.nan
 

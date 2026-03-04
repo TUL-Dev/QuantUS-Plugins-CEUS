@@ -72,12 +72,12 @@ class CurveQuantifications:
         for curves, data_dict in zip(self.analysis_objs.curves, self.data_dict):
             data_dict['Scan Name'] = self.analysis_objs.image_data.scan_name
             data_dict['Segmentation Name'] = self.analysis_objs.seg_data.seg_name
-            if curves.get('Window-Axial Start Pix'):
+            if 'Window-Axial Start Pix' in curves:
                 data_dict['Window-Axial Start Pix'] = curves['Window-Axial Start Pix']
                 data_dict['Window-Sagittal Start Pix'] = curves['Window-Sagittal Start Pix']
                 data_dict['Window-Axial End Pix'] = curves['Window-Axial End Pix']
                 data_dict['Window-Sagittal End Pix'] = curves['Window-Sagittal End Pix']
-                if curves.get('Window-Coronal Start Pix'):
+                if 'Window-Coronal Start Pix' in curves:
                     data_dict['Window-Coronal Start Pix'] = curves['Window-Coronal Start Pix']
                     data_dict['Window-Coronal End Pix'] = curves['Window-Coronal End Pix']
 

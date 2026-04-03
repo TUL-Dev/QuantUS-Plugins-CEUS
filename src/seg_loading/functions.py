@@ -20,8 +20,10 @@ def nifti(image_data: UltrasoundImage, seg_path: str, **kwargs) -> CeusSeg:
     seg = nib.load(seg_path)
     out.seg_mask = np.asarray(seg.dataobj, dtype=np.uint8)
 
-    if out.seg_mask.ndim == 3: # 2D + time
+    if out.seg_mask.ndim == 2: # 2D
         out.pixdim = seg.header.get_zooms()[:2]
+    elif out.seg_mask.ndim == 3: # 3D spatial or 2D + time
+        out.pixdim = seg.header.get_zooms()[:3]
     elif out.seg_mask.ndim == 4: # 3D + time
         out.pixdim = seg.header.get_zooms()[:3]
     

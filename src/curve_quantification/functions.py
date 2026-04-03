@@ -95,10 +95,10 @@ def lognormal_fit_select(analysis_objs: CurvesAnalysis, curves: Dict[str, List[f
             if not isinstance(curves[name], Iterable) or  isinstance(curves[name], str):
                 continue
             curve = curves[name][start_frame:end_frame]
-            auc, pe, tp, mtt, t0, mu, sigma, pe_loc = fit_lognormal_curve(
+            auc, pe, tp, mtt, t0, mu, sigma, pe_loc, tmppv = fit_lognormal_curve(
                 analysis_objs.time_arr[start_frame:end_frame], curve)
-            data_dict[f'AUC_select_{name}'] = auc
-            data_dict[f'PE_select_{name}'] = pe
+            data_dict[f'AUC_select_{name}'] = auc * tmppv
+            data_dict[f'PE_select_{name}'] = pe * tmppv
             data_dict[f'TP_select_{name}'] = tp
             data_dict[f'MTT_select_{name}'] = mtt
             data_dict[f'T0_select_{name}'] = t0 if t0 >= 0 else 0
@@ -120,10 +120,10 @@ def lognormal_fit_full(analysis_objs: CurvesAnalysis, curves: Dict[str, List[flo
             if not isinstance(curves[name], Iterable) or  isinstance(curves[name], str):
                 continue
             curve = curves[name]
-            auc, pe, tp, mtt, t0, mu, sigma, pe_loc = fit_lognormal_curve(
+            auc, pe, tp, mtt, t0, mu, sigma, pe_loc, tmppv = fit_lognormal_curve(
                 analysis_objs.time_arr, curve)
-            data_dict[f'AUC_full_{name}'] = auc
-            data_dict[f'PE_full_{name}'] = pe
+            data_dict[f'AUC_full_{name}'] = auc * tmppv
+            data_dict[f'PE_full_{name}'] = pe * tmppv
             data_dict[f'TP_full_{name}'] = tp
             data_dict[f'MTT_full_{name}'] = mtt
             data_dict[f'T0_full_{name}'] = t0 if t0 >= 0 else 0

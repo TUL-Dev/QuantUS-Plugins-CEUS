@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Dict, List
 from pathlib import Path
 from tqdm import tqdm
+from joblib import Parallel, delayed
 
 from ...data_objs.image import UltrasoundImage
 from ...data_objs.seg import CeusSeg
@@ -82,8 +83,11 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                             percentage_ones = number_of_ones_in_region / total_number_of_elements_in_region
 
                             if percentage_ones > 0.2:
-                                windows.append((ax_start, sag_start, cor_start, 
-                                                ax_start + ax_step, sag_start + sag_step, cor_start + cor_step))
+                                shape = self.seg_data.seg_mask.shape
+                                windows.append((ax_start, sag_start, cor_start,
+                                                min(ax_start + ax_step, shape[2] - 1),
+                                                min(sag_start + sag_step, shape[0] - 1),
+                                                min(cor_start + cor_step, shape[1] - 1)))
                 else:
                     # Determine if window is inside analysis volume
                     mask_vals = self.seg_data.seg_mask[
@@ -97,8 +101,10 @@ class CurvesParamapAnalysis(CurvesAnalysis):
                     percentage_ones = number_of_ones_in_region / total_number_of_elements_in_region
 
                     if percentage_ones > 0.2:
-                        windows.append((ax_start, sag_start, 
-                                        ax_start + ax_step, sag_start + sag_step))
+                        shape = self.seg_data.seg_mask.shape
+                        windows.append((ax_start, sag_start,
+                                        min(ax_start + ax_step, shape[0] - 1),
+                                        min(sag_start + sag_step, shape[1] - 1)))
 
         return windows
         

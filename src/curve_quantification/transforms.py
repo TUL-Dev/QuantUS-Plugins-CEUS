@@ -47,7 +47,7 @@ def fit_lognormal_curve(time, curve):
         )
     except Exception as e:
         print(f"Error fitting curve: {e}")
-        return tuple(np.nan for _ in range(8))
+        return tuple(np.nan for _ in range(9))
 
     auc, mu, sigma, t0 = params
     mtt = np.exp(mu + sigma**2 / 2)
@@ -55,7 +55,7 @@ def fit_lognormal_curve(time, curve):
 
     # Reject unreasonable fits (only reject if tp is beyond the time range)
     if tp > time[-1] or auc > auc_max:
-        return tuple(np.nan for _ in range(8))
+        return tuple(np.nan for _ in range(9))
 
     fitted_curve = bolus_lognormal(time, *params)
     pe = np.max(fitted_curve)

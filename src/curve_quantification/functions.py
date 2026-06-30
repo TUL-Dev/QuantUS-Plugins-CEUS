@@ -5,7 +5,7 @@ from collections.abc import Iterable
 
 from ..time_series_analysis.curves.framework import CurvesAnalysis
 from .decorators import required_kwargs, dependencies
-from .transforms import fit_lognormal_curve
+from .transforms import fit_lognormal_curve, fit_lognormal_curve_no_t0, compute_t0
 
 def _compute_firstorder_stats(curve: np.ndarray, data_dict: dict, name_prefix: str, name_suffix: str = '') -> None:
     """
@@ -95,13 +95,14 @@ def lognormal_fit_select(analysis_objs: CurvesAnalysis, curves: Dict[str, List[f
             if not isinstance(curves[name], Iterable) or  isinstance(curves[name], str):
                 continue
             curve = curves[name][start_frame:end_frame]
-            auc, pe, tp, mtt, t0, mu, sigma, pe_loc, tmppv = fit_lognormal_curve(
+            t0_direct = compute_t0(analysis_objs.time_arr[start_frame:end_frame], curve)
+            auc, pe, tp, mtt, mu, sigma, pe_loc, tmppv = fit_lognormal_curve_no_t0(
                 analysis_objs.time_arr[start_frame:end_frame], curve)
             data_dict[f'AUC_select_{name}'] = auc * tmppv
             data_dict[f'PE_select_{name}'] = pe * tmppv
             data_dict[f'TP_select_{name}'] = tp
             data_dict[f'MTT_select_{name}'] = mtt
-            data_dict[f'T0_select_{name}'] = t0 if t0 >= 0 else 0
+            data_dict[f'T0_select_{name}'] = t0_direct
             data_dict[f'Mu_select_{name}'] = mu
             data_dict[f'Sigma_select_{name}'] = sigma
             data_dict[f'PE_Ix_select_{name}'] = pe_loc
@@ -120,13 +121,20 @@ def lognormal_fit_full(analysis_objs: CurvesAnalysis, curves: Dict[str, List[flo
             if not isinstance(curves[name], Iterable) or  isinstance(curves[name], str):
                 continue
             curve = curves[name]
-            auc, pe, tp, mtt, t0, mu, sigma, pe_loc, tmppv = fit_lognormal_curve(
-                analysis_objs.time_arr, curve)
+            t0_direct = compute_t0(analysis_objs.time_arr, curve)
+            auto_t0 = kwargs.get('auto_t0', True)
+            if auto_t0:
+                auc, pe, tp, mtt, t0_fit, mu, sigma, pe_loc, tmppv = fit_lognormal_curve(
+                    analysis_objs.time_arr, curve)
+            else:
+                auc, pe, tp, mtt, mu, sigma, pe_loc, tmppv = fit_lognormal_curve_no_t0(
+                    analysis_objs.time_arr, curve)
+                t0_fit = t0_direct
             data_dict[f'AUC_full_{name}'] = auc * tmppv
             data_dict[f'PE_full_{name}'] = pe * tmppv
             data_dict[f'TP_full_{name}'] = tp
             data_dict[f'MTT_full_{name}'] = mtt
-            data_dict[f'T0_full_{name}'] = t0 if t0 >= 0 else 0
+            data_dict[f'T0_full_{name}'] = t0_fit
             data_dict[f'Mu_full_{name}'] = mu
             data_dict[f'Sigma_full_{name}'] = sigma
             data_dict[f'PE_Ix_full_{name}'] = pe_loc

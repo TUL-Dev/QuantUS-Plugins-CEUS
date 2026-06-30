@@ -105,5 +105,5 @@ def tic(image_data: UltrasoundImage, frame: np.ndarray, mask: np.ndarray, **kwar
     """
     assert isinstance(image_data, UltrasoundImage), "image_data must be an instance of UltrasoundImage"
     
-    tic_curve = np.mean(frame[mask > 0], axis=0)
+    tic_curve = np.exp(frame[mask > 0] / 24.09).mean(axis=0)
     return ['TIC'], [tic_curve]
